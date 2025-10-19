@@ -1,0 +1,7 @@
+venv
+.python-version
+notes
+__pycache__
+
+
+.herbairium_config.json
