@@ -8,7 +8,7 @@ from pathlib import Path
 
 # Add parent directory to path to import clients
 sys.path.append(str(Path(__file__).parent.parent))
-from clients.olmocr_client import OLMocrClient
+from clients.deepinfra_client import DeepinfraClient
 
 
 def load_images_from_folder(folder_path):
@@ -43,7 +43,7 @@ def load_images_from_folder(folder_path):
 
 def process_ocr(image_path):
     """
-    Process OCR on the given image using OLMocrClient.
+    Process OCR on the given image using DeepinfraClient.
     
     Args:
         image_path: Path to the image file to process
@@ -56,9 +56,10 @@ def process_ocr(image_path):
     """
     try:
         # Create client with current configuration
-        client = OLMocrClient(
-            base_url=st.session_state.olm_base_url,
-            api_key=st.session_state.olm_api_key,
+        client = DeepinfraClient(
+            base_url=st.session_state.llm_base_url,
+            api_key=st.session_state.deepinfra_api_key,
+            model=st.session_state.olm_model,
             prompt=st.session_state.olm_prompt
         )
         
@@ -71,6 +72,32 @@ def process_ocr(image_path):
         return result
     except Exception as e:
         raise Exception(f"OCR processing failed: {str(e)}")
+
+
+def llm_parse_transcription(transcription: str):
+    """
+    Parse the transcription using the LLM.
+    
+    Args:
+        transcription: The transcription to parse
+        
+    Returns:
+        Parsed transcription
+    """
+    try:
+        client = DeepinfraClient(
+            base_url=st.session_state.llm_base_url,
+            api_key=st.session_state.deepinfra_api_key,
+            model=st.session_state.llm_parse_model,
+            prompt=st.session_state.llm_parse_prompt
+        )
+        result = client.inference(
+            temperature=st.session_state.llm_parse_temperature,
+            text=transcription
+        )
+        return result
+    except Exception as e:
+        raise Exception(f"LLM parsing failed: {str(e)}")
 
 
 def format_file_size(size_bytes):

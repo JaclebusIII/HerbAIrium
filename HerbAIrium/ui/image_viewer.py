@@ -5,7 +5,8 @@ Displays images with navigation controls and OCR processing functionality.
 import streamlit as st
 from pathlib import Path
 from PIL import Image
-from utils import process_ocr, format_file_size
+from utils import process_ocr, format_file_size, llm_parse_transcription
+from PIL import ImageOps
 
 
 def render_navigation_controls():
@@ -60,20 +61,27 @@ def render_image_display(image_path):
     file_size = file_path.stat().st_size
     size_str = format_file_size(file_size)
     
-    # Display image
-    # make image smaller to 1024x1024
-    image = Image.open(image_path)
-    image.thumbnail((1024, 1024))
-    st.image(image, use_container_width=False)
+    col_image, col_meta = st.columns([1, 2])
+    with col_image:
+        image = Image.open(image_path)
+        resized_image = ImageOps.pad(image, (500, 500), color="white")
+        st.image(resized_image, use_container_width=True)
+    with col_meta:
+        ov_tab, ai_tab = col_meta.tabs(["Overview", "AI tools"])
+        with ov_tab:
+            st.metric("Dimensions", f"{image.width} × {image.height} px")
+            st.metric("File Size", size_str)
+            
+        with ai_tab:
+            render_action_buttons(image_path)
+            render_ocr_results(image_path)
+            render_llm_parse_results(image_path)
+
+
+   
     
-    # Image metadata
-    col_meta1, col_meta2, col_meta3 = st.columns(3)
-    with col_meta1:
-        st.metric("Dimensions", f"{image.width} × {image.height} px")
-    with col_meta2:
-        st.metric("Format", image.format)
-    with col_meta3:
-        st.metric("File Size", size_str)
+
+
 
 
 def render_action_buttons(image_path):
@@ -87,7 +95,7 @@ def render_action_buttons(image_path):
     
     with col_action1:
         # Check if API key is configured
-        api_configured = bool(st.session_state.olm_api_key)
+        api_configured = bool(st.session_state.deepinfra_api_key)
         
         if st.button("🔍 Process with OCR", use_container_width=True, disabled=not api_configured):
             if api_configured:
@@ -109,9 +117,25 @@ def render_action_buttons(image_path):
             st.caption("⚠️ API key required")
     
     with col_action2:
-        if st.button("🤖 Analyze with AI", use_container_width=True):
-            st.info("AI analysis will be implemented here")
-
+        api_configured = bool(st.session_state.deepinfra_api_key)
+        if st.button("🤖 Analyze with AI", use_container_width=True, disabled=not api_configured):
+            if api_configured:
+                st.session_state.ai_processing = True
+                with st.spinner("🔄 Analyzing image with AI..."):
+                    try:
+                        result = llm_parse_transcription(st.session_state.ocr_results[image_path])
+                        st.session_state.ai_results[image_path] = result
+                        st.session_state.ai_processing = False
+                        st.success("✅ AI analysis complete!")
+            
+                    except Exception as e:
+                        st.session_state.ai_processing = False
+                        st.error(f"❌ {str(e)}")
+            else:
+                st.warning("⚠️ Please configure your API key in the Configuration tab first.")
+        
+        if not api_configured:
+            st.caption("⚠️ API key required")
 
 def render_ocr_results(image_path):
     """
@@ -120,34 +144,58 @@ def render_ocr_results(image_path):
     Args:
         image_path: Path to the current image
     """
+    st.divider()
+    st.subheader("📄 OCR Transcription Results")
+    
     if image_path in st.session_state.ocr_results:
-        st.divider()
-        st.subheader("📄 OCR Transcription Results")
-        
         result_text = st.session_state.ocr_results[image_path]
-        
-        # Display in an expandable section
-        with st.expander("View Full Transcription", expanded=True):
-            st.text_area(
-                "Transcription",
-                value=result_text,
-                height=300,
-                key=f"ocr_result_{st.session_state.current_image_index}",
-                label_visibility="collapsed"
-            )
-        
-        # Add copy button and clear button
-        col_res1, col_res2, col_res3 = st.columns([2, 1, 1])
-        with col_res1:
-            st.caption(f"Characters: {len(result_text)} | Words: {len(result_text.split())}")
-        with col_res2:
-            if st.button("📋 Copy to Clipboard", use_container_width=True):
-                st.code(result_text, language=None)
-                st.info("💡 Select and copy the text above")
-        with col_res3:
-            if st.button("🗑️ Clear Result", use_container_width=True):
-                del st.session_state.ocr_results[image_path]
-                st.rerun()
+    else:
+        result_text = "No OCR results available"
+    
+    # Display in an expandable section
+    with st.expander("View Full Transcription", expanded=True):
+        st.text_area(
+            "Transcription",
+            value=result_text,
+            height=300,
+            key=f"ocr_result_{image_path}_{hash(result_text)}",
+            label_visibility="collapsed",
+            disabled=True
+        )
+    
+    # Add copy button and clear button
+    col_res1, col_res2, col_res3 = st.columns([2, 1, 1])
+    with col_res1:
+        st.caption(f"Characters: {len(result_text)} | Words: {len(result_text.split())}")
+
+
+def render_llm_parse_results(image_path):
+    """
+    Render LLM parse results if available for the current image.
+    
+    Args:
+        image_path: Path to the current image
+    """
+    st.divider()
+    st.subheader("📄 LLM Parse Results")
+    
+    if image_path in st.session_state.ai_results:
+        result_text = st.session_state.ai_results[image_path]
+    else:
+        result_text = "No LLM parse results available"
+    
+    # Display in an expandable section
+    with st.expander("View Full Parsed Results", expanded=True):
+        st.text_area(
+            "Parsed Results",
+            value=result_text,
+            height=300,
+            key=f"llm_parse_result_{image_path}_{hash(result_text)}",
+            label_visibility="collapsed",
+            disabled=True
+        )
+
+
 
 
 def render_image_viewer():
@@ -164,12 +212,6 @@ def render_image_viewer():
             # Display image and metadata
             render_image_display(current_image_path)
             st.divider()
-            
-            # Action buttons
-            render_action_buttons(current_image_path)
-            
-            # OCR results (if available)
-            render_ocr_results(current_image_path)
             
         except Exception as e:
             st.error(f"❌ Error loading image: {str(e)}")
