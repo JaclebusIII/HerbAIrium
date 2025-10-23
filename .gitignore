@@ -5,3 +5,4 @@ __pycache__
 
 
 .herbairium_config.json
+*.json

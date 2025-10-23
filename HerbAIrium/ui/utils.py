@@ -2,8 +2,10 @@
 Utility functions for HerbAIrium UI.
 Includes file handling, OCR processing, and formatting helpers.
 """
-import streamlit as st
 import sys
+import json
+
+import streamlit as st
 from pathlib import Path
 
 # Add parent directory to path to import clients
@@ -57,18 +59,18 @@ def process_ocr(image_path):
     try:
         # Create client with current configuration
         client = DeepinfraClient(
-            base_url=st.session_state.llm_base_url,
-            api_key=st.session_state.deepinfra_api_key,
-            model=st.session_state.olm_model,
-            prompt=st.session_state.olm_prompt
+            base_url=st.session_state.configuration.llm_base_url,
+            api_key=st.session_state.configuration.deepinfra_api_key,
+            model=st.session_state.configuration.olm_model,
+            prompt=st.session_state.configuration.olm_prompt
         )
         
         # Run inference
         result = client.inference(
             pdf_path=image_path,
-            temperature=st.session_state.olm_temperature
+            temperature=st.session_state.configuration.olm_temperature
         )
-        
+
         return result
     except Exception as e:
         raise Exception(f"OCR processing failed: {str(e)}")
@@ -86,18 +88,31 @@ def llm_parse_transcription(transcription: str):
     """
     try:
         client = DeepinfraClient(
-            base_url=st.session_state.llm_base_url,
-            api_key=st.session_state.deepinfra_api_key,
-            model=st.session_state.llm_parse_model,
-            prompt=st.session_state.llm_parse_prompt
+            base_url=st.session_state.configuration.llm_base_url,
+            api_key=st.session_state.configuration.deepinfra_api_key,
+            model=st.session_state.configuration.llm_parse_model,
+            prompt=st.session_state.configuration.llm_parse_prompt
         )
         result = client.inference(
-            temperature=st.session_state.llm_parse_temperature,
+            temperature=st.session_state.configuration.llm_parse_temperature,
             text=transcription
         )
         return result
     except Exception as e:
         raise Exception(f"LLM parsing failed: {str(e)}")
+
+def parse_llm_results(llm_result: str):
+    """
+    Parse Json from LLM result.
+    
+    Args:
+        llm_result: The LLM result to parse
+    """
+    try:
+        dict_result = json.loads(llm_result)
+        return dict_result
+    except Exception as e:
+        return None
 
 
 def format_file_size(size_bytes):
@@ -116,4 +131,3 @@ def format_file_size(size_bytes):
         return f"{size_bytes / 1024:.2f} KB"
     else:
         return f"{size_bytes / (1024 * 1024):.2f} MB"
-

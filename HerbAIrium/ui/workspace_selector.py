@@ -25,8 +25,7 @@ def render_workspace_selector():
                 st.session_state.current_image_index = 0
                 
                 # Auto-load saved configuration if it exists
-                if load_configuration():
-                    st.success("✅ Loaded saved configuration from workspace")
+                st.session_state.configuration = load_configuration()
                 
                 st.rerun()
             else:

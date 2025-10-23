@@ -7,20 +7,24 @@ from pathlib import Path
 from PIL import Image
 from utils import process_ocr, format_file_size, llm_parse_transcription
 from PIL import ImageOps
+from streamlit_image_zoom import image_zoom
 
+
+from models.metadata import Metadata
+from utils import parse_llm_results
 
 def render_navigation_controls():
     """Render the image navigation controls (First, Previous, Next, Last)."""
     col_nav1, col_nav2, col_nav3, col_nav4, col_nav5 = st.columns([1, 1, 3, 1, 1])
     
     with col_nav1:
-        if st.button("⏮️ First", use_container_width=True, 
+        if st.button("⏮️ First", width='stretch', 
                      disabled=(st.session_state.current_image_index == 0)):
             st.session_state.current_image_index = 0
             st.rerun()
     
     with col_nav2:
-        if st.button("⬅️ Previous", use_container_width=True, 
+        if st.button("⬅️ Previous", width='stretch', 
                      disabled=(st.session_state.current_image_index == 0)):
             st.session_state.current_image_index -= 1
             st.rerun()
@@ -28,31 +32,31 @@ def render_navigation_controls():
     with col_nav3:
         st.markdown(
             f"<h3 style='text-align: center;'>Image {st.session_state.current_image_index + 1} "
-            f"of {len(st.session_state.image_files)}</h3>",
+            f"of {len(st.session_state.configuration.image_files)}</h3>",
             unsafe_allow_html=True
         )
     
     with col_nav4:
-        if st.button("➡️ Next", use_container_width=True, 
-                     disabled=(st.session_state.current_image_index >= len(st.session_state.image_files) - 1)):
+        if st.button("➡️ Next", width='stretch', 
+                     disabled=(st.session_state.current_image_index >= len(st.session_state.configuration.image_files) - 1)):
             st.session_state.current_image_index += 1
             st.rerun()
     
     with col_nav5:
-        if st.button("⏭️ Last", use_container_width=True, 
-                     disabled=(st.session_state.current_image_index >= len(st.session_state.image_files) - 1)):
-            st.session_state.current_image_index = len(st.session_state.image_files) - 1
+        if st.button("⏭️ Last", width='stretch', 
+                     disabled=(st.session_state.current_image_index >= len(st.session_state.configuration.image_files) - 1)):
+            st.session_state.current_image_index = len(st.session_state.configuration.image_files) - 1
             st.rerun()
 
 
-def render_image_display(image_path):
+def render_image_display():
     """
     Render the image display with metadata.
     
     Args:
         image_path: Path to the image file
     """
-    file_path = Path(image_path)
+    file_path = Path(st.session_state.metadata.image_path)
     
     # Image info header
     st.subheader(f"🖼️ {file_path.name}")
@@ -61,21 +65,30 @@ def render_image_display(image_path):
     file_size = file_path.stat().st_size
     size_str = format_file_size(file_size)
     
-    col_image, col_meta = st.columns([1, 2])
+    col_image, col_meta = st.columns([1, 1])
     with col_image:
-        image = Image.open(image_path)
-        resized_image = ImageOps.pad(image, (500, 500), color="white")
-        st.image(resized_image, use_container_width=True)
+        image = Image.open(st.session_state.metadata.image_path)
+        # resized_image = ImageOps.pad(image, (500, 500), color="white")
+        image_zoom(
+            image,
+            size=(image.width//2, image.height//2),
+            mode="default",
+            keep_resolution=True,
+        )
     with col_meta:
         ov_tab, ai_tab = col_meta.tabs(["Overview", "AI tools"])
         with ov_tab:
             st.metric("Dimensions", f"{image.width} × {image.height} px")
             st.metric("File Size", size_str)
-            
+            st.metric("Image Path", st.session_state.metadata.image_path)
+            st.metric("Collector Name", st.session_state.metadata.collector_name)
+            st.metric("Location", st.session_state.metadata.location)
+            st.metric("Family", st.session_state.metadata.family)
+            st.metric("Collection Date", st.session_state.metadata.collection_date)
         with ai_tab:
-            render_action_buttons(image_path)
-            render_ocr_results(image_path)
-            render_llm_parse_results(image_path)
+            render_action_buttons()
+            render_ocr_results()
+            render_llm_parse_results()
 
 
    
@@ -84,7 +97,7 @@ def render_image_display(image_path):
 
 
 
-def render_action_buttons(image_path):
+def render_action_buttons():
     """
     Render action buttons for OCR and AI analysis.
     
@@ -92,23 +105,19 @@ def render_action_buttons(image_path):
         image_path: Path to the current image
     """
     col_action1, col_action2 = st.columns(2)
+
+    api_configured = bool(st.session_state.configuration.deepinfra_api_key)
     
     with col_action1:
-        # Check if API key is configured
-        api_configured = bool(st.session_state.deepinfra_api_key)
-        
-        if st.button("🔍 Process with OCR", use_container_width=True, disabled=not api_configured):
+        if st.button("🔍 Process with OCR", width='stretch', disabled=not api_configured):
             if api_configured:
                 st.session_state.ocr_processing = True
                 with st.spinner("🔄 Processing image with OCR..."):
                     try:
-                        result = process_ocr(image_path)
-                        st.session_state.ocr_results[image_path] = result
-                        st.session_state.ocr_processing = False
+                        st.session_state.metadata.ocr_result = process_ocr(st.session_state.metadata.image_path)
                         st.success("✅ OCR processing complete!")
-                        st.rerun()
+                        st.session_state.metadata.save()
                     except Exception as e:
-                        st.session_state.ocr_processing = False
                         st.error(f"❌ {str(e)}")
             else:
                 st.warning("⚠️ Please configure your API key in the Configuration tab first.")
@@ -117,19 +126,23 @@ def render_action_buttons(image_path):
             st.caption("⚠️ API key required")
     
     with col_action2:
-        api_configured = bool(st.session_state.deepinfra_api_key)
-        if st.button("🤖 Analyze with AI", use_container_width=True, disabled=not api_configured):
+        if st.button("🤖 Parse with LLM", width='stretch', disabled=not api_configured):
             if api_configured:
                 st.session_state.ai_processing = True
-                with st.spinner("🔄 Analyzing image with AI..."):
+                with st.spinner("🔄 Parsing with LLM..."):
                     try:
-                        result = llm_parse_transcription(st.session_state.ocr_results[image_path])
-                        st.session_state.ai_results[image_path] = result
-                        st.session_state.ai_processing = False
-                        st.success("✅ AI analysis complete!")
-            
+                        st.session_state.metadata.ai_result = llm_parse_transcription(st.session_state.metadata.ocr_result)
+                        st.success("✅ LLM parsing complete!")
+                        result_dict = parse_llm_results(st.session_state.metadata.ai_result)
+                        if result_dict is not None:
+                            st.session_state.metadata.collector_name = result_dict["collector_name"]
+                            st.session_state.metadata.location = result_dict["location"]
+                            st.session_state.metadata.family = result_dict["family"]
+                            st.session_state.metadata.collection_date = result_dict["collection_date"]
+
+                        st.session_state.metadata.save()
+                        st.rerun()
                     except Exception as e:
-                        st.session_state.ai_processing = False
                         st.error(f"❌ {str(e)}")
             else:
                 st.warning("⚠️ Please configure your API key in the Configuration tab first.")
@@ -137,7 +150,7 @@ def render_action_buttons(image_path):
         if not api_configured:
             st.caption("⚠️ API key required")
 
-def render_ocr_results(image_path):
+def render_ocr_results():
     """
     Render OCR results if available for the current image.
     
@@ -147,8 +160,8 @@ def render_ocr_results(image_path):
     st.divider()
     st.subheader("📄 OCR Transcription Results")
     
-    if image_path in st.session_state.ocr_results:
-        result_text = st.session_state.ocr_results[image_path]
+    if st.session_state.metadata.ocr_result:
+        result_text = st.session_state.metadata.ocr_result
     else:
         result_text = "No OCR results available"
     
@@ -158,7 +171,7 @@ def render_ocr_results(image_path):
             "Transcription",
             value=result_text,
             height=300,
-            key=f"ocr_result_{image_path}_{hash(result_text)}",
+            key=f"ocr_result_{st.session_state.metadata.image_path}_{hash(result_text)}",
             label_visibility="collapsed",
             disabled=True
         )
@@ -169,7 +182,7 @@ def render_ocr_results(image_path):
         st.caption(f"Characters: {len(result_text)} | Words: {len(result_text.split())}")
 
 
-def render_llm_parse_results(image_path):
+def render_llm_parse_results():
     """
     Render LLM parse results if available for the current image.
     
@@ -179,8 +192,8 @@ def render_llm_parse_results(image_path):
     st.divider()
     st.subheader("📄 LLM Parse Results")
     
-    if image_path in st.session_state.ai_results:
-        result_text = st.session_state.ai_results[image_path]
+    if st.session_state.metadata.ai_result:
+        result_text = st.session_state.metadata.ai_result
     else:
         result_text = "No LLM parse results available"
     
@@ -190,31 +203,31 @@ def render_llm_parse_results(image_path):
             "Parsed Results",
             value=result_text,
             height=300,
-            key=f"llm_parse_result_{image_path}_{hash(result_text)}",
+            key=f"llm_parse_result_{st.session_state.metadata.image_path}_{hash(result_text)}",
             label_visibility="collapsed",
             disabled=True
-        )
+        )   
 
 
 
 
 def render_image_viewer():
     """Render the complete image viewer tab."""
-    if st.session_state.image_files:
+    if st.session_state.configuration.image_files:
         # Navigation controls
         render_navigation_controls()
         st.divider()
         
         # Get current image path
-        current_image_path = st.session_state.image_files[st.session_state.current_image_index]
+        st.session_state.metadata = Metadata(image_path=st.session_state.configuration.image_files[st.session_state.current_image_index])       
         
-        try:
-            # Display image and metadata
-            render_image_display(current_image_path)
-            st.divider()
-            
-        except Exception as e:
-            st.error(f"❌ Error loading image: {str(e)}")
+        # try:
+        # Display image and metadata
+        render_image_display()
+        st.divider()
+                
+        # except Exception as e:
+        #     st.error(f"❌ Error loading image: {str(e)}")
     else:
         st.warning("⚠️ No image files found in the selected workspace.")
 

@@ -34,9 +34,9 @@ else:
     col_header1, col_header2 = st.columns([3, 1])
     with col_header1:
         st.caption(f"Full path: `{st.session_state.workspace_folder}`")
-        st.caption(f"Total images: {len(st.session_state.image_files)}")
+        st.caption(f"Total images: {len(st.session_state.configuration.image_files)}")
     with col_header2:
-        if st.button("🔄 Change Workspace", use_container_width=True):
+        if st.button("🔄 Change Workspace", width='stretch'):
             reset_workspace()
             st.rerun()
     
