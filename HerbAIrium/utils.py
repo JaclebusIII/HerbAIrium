@@ -9,8 +9,9 @@ import streamlit as st
 from pathlib import Path
 
 # Add parent directory to path to import clients
-sys.path.append(str(Path(__file__).parent.parent))
 from clients.deepinfra_client import DeepinfraClient
+from models.metadata import Metadata
+from models.configuration import Configuration
 
 
 def load_images_from_folder(folder_path):
@@ -36,14 +37,15 @@ def load_images_from_folder(folder_path):
         ])
         return files
     except PermissionError:
-        st.error("❌ Permission denied to access this directory.")
-        return []
+        raise Exception(f"Permission denied to access this directory: {str(e)}")
     except Exception as e:
-        st.error(f"❌ Error reading directory: {str(e)}")
-        return []
+        raise Exception(f"Error reading directory: {str(e)}")
 
 
-def process_ocr(image_path):
+def process_ocr(
+    image_path: str,
+    configuration: Configuration
+    ):
     """
     Process OCR on the given image using DeepinfraClient.
     
@@ -59,16 +61,16 @@ def process_ocr(image_path):
     try:
         # Create client with current configuration
         client = DeepinfraClient(
-            base_url=st.session_state.configuration.llm_base_url,
-            api_key=st.session_state.configuration.deepinfra_api_key,
-            model=st.session_state.configuration.olm_model,
-            prompt=st.session_state.configuration.olm_prompt
+            base_url=configuration.llm_base_url,
+            api_key=configuration.deepinfra_api_key,
+            model=configuration.olm_model,
+            prompt=configuration.olm_prompt
         )
         
         # Run inference
         result = client.inference(
             pdf_path=image_path,
-            temperature=st.session_state.configuration.olm_temperature
+            temperature=configuration.olm_temperature
         )
 
         return result
@@ -76,7 +78,10 @@ def process_ocr(image_path):
         raise Exception(f"OCR processing failed: {str(e)}")
 
 
-def llm_parse_transcription(transcription: str):
+def llm_parse_transcription(
+    transcription: str,
+    configuration: Configuration
+    ):
     """
     Parse the transcription using the LLM.
     
@@ -88,13 +93,13 @@ def llm_parse_transcription(transcription: str):
     """
     try:
         client = DeepinfraClient(
-            base_url=st.session_state.configuration.llm_base_url,
-            api_key=st.session_state.configuration.deepinfra_api_key,
-            model=st.session_state.configuration.llm_parse_model,
-            prompt=st.session_state.configuration.llm_parse_prompt
+            base_url=configuration.llm_base_url,
+            api_key=configuration.deepinfra_api_key,
+            model=configuration.llm_parse_model,
+            prompt=configuration.llm_parse_prompt
         )
         result = client.inference(
-            temperature=st.session_state.configuration.llm_parse_temperature,
+            temperature=configuration.llm_parse_temperature,
             text=transcription
         )
         return result
@@ -131,3 +136,39 @@ def format_file_size(size_bytes):
         return f"{size_bytes / 1024:.2f} KB"
     else:
         return f"{size_bytes / (1024 * 1024):.2f} MB"
+
+
+def process_ocr_and_save_results(
+    image_path: str,
+    configuration: Configuration
+    ):
+    """
+    Process OCR and save the results to the database.
+    
+    Args:
+        image_path: Path to the image file to process
+    """
+    metadata = Metadata(image_path=image_path)
+    metadata.ocr_result = process_ocr(image_path, configuration)
+    metadata.save()
+
+def llm_parse_transcription_and_save_results(
+    image_path: str,
+    configuration: Configuration
+    ):
+    """
+    Parse the transcription and save the results to the database.
+    
+    Args:
+        image_path: Path to the image file to process
+        configuration: Configuration
+    """
+    metadata = Metadata(image_path=image_path)
+    transcription = metadata.ocr_result
+    if transcription is not None:
+        llm_parse_result = llm_parse_transcription(transcription, configuration)
+        if llm_parse_result is not None:
+            metadata.llm_parse_result = llm_parse_result
+            metadata.save()
+    else:
+        raise Exception("No OCR result found for this image.")

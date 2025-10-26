@@ -4,14 +4,11 @@ Displays images with navigation controls and OCR processing functionality.
 """
 import streamlit as st
 from pathlib import Path
-from PIL import Image
-from utils import process_ocr, format_file_size, llm_parse_transcription
-from PIL import ImageOps
+from PIL import Image, ImageOps
 from streamlit_image_zoom import image_zoom
 
-
 from models.metadata import Metadata
-from utils import parse_llm_results
+from utils import process_ocr, format_file_size, llm_parse_transcription, parse_llm_results
 
 def render_navigation_controls():
     """Render the image navigation controls (First, Previous, Next, Last)."""
@@ -114,7 +111,7 @@ def render_action_buttons():
                 st.session_state.ocr_processing = True
                 with st.spinner("🔄 Processing image with OCR..."):
                     try:
-                        st.session_state.metadata.ocr_result = process_ocr(st.session_state.metadata.image_path)
+                        st.session_state.metadata.ocr_result = process_ocr(st.session_state.metadata.image_path, st.session_state.configuration)
                         st.success("✅ OCR processing complete!")
                         st.session_state.metadata.save()
                     except Exception as e:
@@ -131,7 +128,7 @@ def render_action_buttons():
                 st.session_state.ai_processing = True
                 with st.spinner("🔄 Parsing with LLM..."):
                     try:
-                        st.session_state.metadata.ai_result = llm_parse_transcription(st.session_state.metadata.ocr_result)
+                        st.session_state.metadata.ai_result = llm_parse_transcription(st.session_state.metadata.ocr_result, st.session_state.configuration)
                         st.success("✅ LLM parsing complete!")
                         result_dict = parse_llm_results(st.session_state.metadata.ai_result)
                         if result_dict is not None:

@@ -2,13 +2,14 @@
 Session state management for HerbAIrium.
 Initializes and manages all session state variables.
 """
-import streamlit as st
+
 import json
 import os
+import sys
+import streamlit as st
 from pathlib import Path
 
 from models.configuration import Configuration
-# from models.metadata import Metadata
 
 
 def initialize_session_state():

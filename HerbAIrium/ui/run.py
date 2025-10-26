@@ -2,14 +2,20 @@
 HerbAIrium - Main Application
 A Streamlit-based herbarium image viewer and OCR processor.
 """
-import streamlit as st
+import sys
 from pathlib import Path
 
-# Import application modules
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+import streamlit as st
+
 from state import initialize_session_state, reset_workspace
 from workspace_selector import render_workspace_selector
 from image_viewer import render_image_viewer
 from configuration_tab import render_configuration_tab
+from overview_tab import render_overview_tab
+
 
 # Page configuration
 st.set_page_config(page_title="HerbAIrium", layout="wide")
@@ -43,10 +49,13 @@ else:
     st.divider()
     
     # Create tabs
-    tab1, tab2 = st.tabs(["🖼️ Image Viewer", "⚙️ Configuration"])
-    
+    tab1, tab2, tab3 = st.tabs(["🏠 Overview", "🖼️ Image Viewer", "⚙️ Configuration"])
+
     with tab1:
-        render_image_viewer()
+        render_overview_tab()
     
     with tab2:
+        render_image_viewer()
+    
+    with tab3:
         render_configuration_tab()

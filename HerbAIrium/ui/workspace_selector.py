@@ -2,8 +2,9 @@
 Workspace folder selection component.
 Handles the initial folder selection UI before the main workspace is loaded.
 """
-import streamlit as st
 import os
+import streamlit as st
+
 from utils import load_images_from_folder
 from state import load_configuration
 
