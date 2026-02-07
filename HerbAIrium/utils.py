@@ -14,34 +14,6 @@ from models.metadata import Metadata
 from models.configuration import Configuration
 
 
-def load_images_from_folder(folder_path):
-    """
-    Load all image files from the specified folder.
-    
-    Args:
-        folder_path: Path to the folder to scan for images
-        
-    Returns:
-        List of image file paths (sorted)
-    """
-    image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp'}
-    folder = Path(folder_path)
-    
-    if not folder.exists() or not folder.is_dir():
-        return []
-    
-    try:
-        files = sorted([
-            str(f) for f in folder.iterdir() 
-            if f.is_file() and f.suffix.lower() in image_extensions
-        ])
-        return files
-    except PermissionError:
-        raise Exception(f"Permission denied to access this directory: {str(e)}")
-    except Exception as e:
-        raise Exception(f"Error reading directory: {str(e)}")
-
-
 def process_ocr(
     image_path: str,
     configuration: Configuration

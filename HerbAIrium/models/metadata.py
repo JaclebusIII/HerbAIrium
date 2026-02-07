@@ -1,5 +1,6 @@
 import os
 import json
+from pathlib import Path
 
 from PIL import Image
 from typing import Optional
@@ -23,7 +24,8 @@ class Metadata(BaseSettings):
 
 
     def __init__(self, image_path: str, **kwargs):
-        metadata_path = f"{os.path.splitext(image_path)[0]}.json"
+        image_path_obj = Path(image_path)
+        metadata_path = str(image_path_obj.with_suffix('.json'))
 
         if os.path.exists(metadata_path):
             with open(metadata_path, 'r') as f:

@@ -35,9 +35,11 @@ class Configuration(BaseSettings):
     
     def __init__(self, workspace_folder: str, **kwargs):
         configuration_path = os.path.join(workspace_folder, ".herbairium_configuration.json")
+        
+        # Scan for image files (case-insensitive)
         image_files = [
             os.path.join(workspace_folder, f) for f in os.listdir(workspace_folder) 
-            if f.endswith(IMAGE_EXTENSIONS)
+            if os.path.isfile(os.path.join(workspace_folder, f)) and f.lower().endswith(IMAGE_EXTENSIONS)
         ]
         
         # Load from JSON if it exists
@@ -45,6 +47,9 @@ class Configuration(BaseSettings):
             with open(configuration_path, 'r') as f:
                 json_data = json.load(f)
                 kwargs.update(json_data)
+        
+        # Always use the freshly scanned image_files list (don't override with saved JSON)
+        kwargs['image_files'] = image_files
         
         # Initialize with all values
         super().__init__(
