@@ -26,11 +26,24 @@ class Configuration(BaseSettings):
     llm_parse_max_tokens: int = 4096
     llm_parse_prompt: str = (
         "The following is a transcription of a herbarium specimen image. "
-        "Please parse the transcription and extract the following information: "
-        "collector name, location, family, and collection date. "
-        "Return the information in a JSON format. "
-        "The JSON format should be: "
-        "{'collector_name': 'string', 'location': 'string', 'family': 'string', 'collection_date': 'string'}"
+        "Please parse the transcription and extract the following information into a JSON format:\n\n"
+        "catalogNumber: This is the barcode number.\n"
+        "recordNumber: This is the random number on the label, often closely located to the collector's name.\n"
+        "family: Always ends with '-aceae'.\n"
+        "scientificName: Should include both genus and species names. The first letter of the genus name should always be capitalized. The species name should always be all lowercase.\n"
+        "scientificNameAuthorship: This is the name or abbreviation listed after the species name.\n"
+        "eventDate: Convert to the format YYYY-MM-DD.\n"
+        "country: If in the USA, always write it down as 'United States' not US, USA, America, United States of America, or anything else.\n"
+        "stateProvince: Use fuzzy matching to make sure state or province name is spelled correctly.\n"
+        "County: Use fuzzy matching to make sure county name is spelled correctly.\n"
+        "Locality: Everything related to the location of the specimen.\n"
+        "decimalLatitude: Only include if it is on the label. Leave blank if not on label. Convert to decimal degree.\n"
+        "decimalLongitude: Only include if it is on the label. Leave blank if not on label. Convert to decimal degree.\n"
+        "recordedBy: First person's name listed.\n"
+        "associatedCollectors: If there is more than one collector, list all subsequent collectors here.\n"
+        "minimumElevationInMeters: Only include if it is on the label. If listed as feet, convert to Meters.\n\n"
+        "Return the information in a JSON format with the above field names. "
+        "Leave fields blank (empty string or null) if the information is not found in the transcription."
     )
     
     def __init__(self, workspace_folder: str, **kwargs):
