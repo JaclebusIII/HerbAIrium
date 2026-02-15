@@ -8,7 +8,7 @@ from PIL import Image, ImageOps
 from streamlit_image_zoom import image_zoom
 
 from models.metadata import Metadata
-from utils import process_ocr, format_file_size, llm_parse_transcription, parse_llm_results
+from utils import process_ocr, format_file_size, llm_parse_transcription_and_save_results
 
 def render_navigation_controls():
     """Render the image navigation controls (First, Previous, Next, Last)."""
@@ -78,10 +78,21 @@ def render_image_display():
             st.metric("Dimensions", f"{image.width} × {image.height} px")
             st.metric("File Size", size_str)
             st.metric("Image Path", st.session_state.metadata.image_path)
-            st.metric("Collector Name", st.session_state.metadata.collector_name)
-            st.metric("Location", st.session_state.metadata.location)
+            st.metric("Catalog Number", st.session_state.metadata.catalogNumber)
+            st.metric("Record Number", st.session_state.metadata.recordNumber)
             st.metric("Family", st.session_state.metadata.family)
-            st.metric("Collection Date", st.session_state.metadata.collection_date)
+            st.metric("Scientific Name", st.session_state.metadata.scientificName)
+            st.metric("Scientific Name Authorship", st.session_state.metadata.scientificNameAuthorship)
+            st.metric("Event Date", st.session_state.metadata.eventDate)
+            st.metric("Country", st.session_state.metadata.country)
+            st.metric("State Province", st.session_state.metadata.stateProvince)
+            st.metric("County", st.session_state.metadata.County)
+            st.metric("Locality", st.session_state.metadata.Locality)
+            st.metric("Decimal Latitude", st.session_state.metadata.decimalLatitude)
+            st.metric("Decimal Longitude", st.session_state.metadata.decimalLongitude)
+            st.metric("Recorded By", st.session_state.metadata.recordedBy)
+            st.metric("Associated Collectors", st.session_state.metadata.associatedCollectors)
+            st.metric("Minimum Elevation in Meters", st.session_state.metadata.minimumElevationInMeters)
         with ai_tab:
             render_action_buttons()
             render_ocr_results()
@@ -128,16 +139,8 @@ def render_action_buttons():
                 st.session_state.ai_processing = True
                 with st.spinner("🔄 Parsing with LLM..."):
                     try:
-                        st.session_state.metadata.ai_result = llm_parse_transcription(st.session_state.metadata.ocr_result, st.session_state.configuration)
+                        st.session_state.metadata.ai_result = llm_parse_transcription_and_save_results(st.session_state.metadata.image_path, st.session_state.configuration)
                         st.success("✅ LLM parsing complete!")
-                        result_dict = parse_llm_results(st.session_state.metadata.ai_result)
-                        if result_dict is not None:
-                            st.session_state.metadata.collector_name = result_dict["collector_name"]
-                            st.session_state.metadata.location = result_dict["location"]
-                            st.session_state.metadata.family = result_dict["family"]
-                            st.session_state.metadata.collection_date = result_dict["collection_date"]
-
-                        st.session_state.metadata.save()
                         st.rerun()
                     except Exception as e:
                         st.error(f"❌ {str(e)}")

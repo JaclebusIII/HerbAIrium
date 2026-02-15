@@ -78,7 +78,7 @@ def llm_parse_transcription(
     except Exception as e:
         raise Exception(f"LLM parsing failed: {str(e)}")
 
-def parse_llm_results(llm_result: str):
+def json_to_dict(llm_result: str):
     """
     Parse Json from LLM result.
     
@@ -139,8 +139,24 @@ def llm_parse_transcription_and_save_results(
     transcription = metadata.ocr_result
     if transcription is not None:
         llm_parse_result = llm_parse_transcription(transcription, configuration)
+        metadata.ai_result = llm_parse_result
         if llm_parse_result is not None:
-            metadata.llm_parse_result = llm_parse_result
-            metadata.save()
+            json_result = json_to_dict(llm_parse_result)
+            if json_result is not None:
+                metadata.recordNumber = json_result["recordNumber"]
+                metadata.family = json_result["family"]
+                metadata.scientificName = json_result["scientificName"]
+                metadata.scientificNameAuthorship = json_result["scientificNameAuthorship"]
+                metadata.eventDate = json_result["eventDate"]
+                metadata.country = json_result["country"]
+                metadata.stateProvince = json_result["stateProvince"]
+                metadata.County = json_result["County"]
+                metadata.Locality = json_result["Locality"]
+                metadata.decimalLatitude = json_result["decimalLatitude"]
+                metadata.decimalLongitude = json_result["decimalLongitude"]
+                metadata.recordedBy = json_result["recordedBy"]
+                metadata.associatedCollectors = json_result["associatedCollectors"]
+                metadata.minimumElevationInMeters = json_result["minimumElevationInMeters"]
+        metadata.save()
     else:
         raise Exception("No OCR result found for this image.")

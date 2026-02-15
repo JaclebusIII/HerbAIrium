@@ -17,10 +17,21 @@ class Metadata(BaseSettings):
     ocr_result: Optional[str] = None
     ai_result: Optional[str] = None
 
-    collector_name: Optional[str] = None
-    location: Optional[str] = None
+    catalogNumber: Optional[str] = None
+    recordNumber: Optional[str] = None
     family: Optional[str] = None
-    collection_date: Optional[str] = None
+    scientificName: Optional[str] = None
+    scientificNameAuthorship: Optional[str] = None
+    eventDate: Optional[str] = None
+    country: Optional[str] = None
+    stateProvince: Optional[str] = None
+    County: Optional[str] = None
+    Locality: Optional[str] = None
+    decimalLatitude: Optional[str] = None
+    decimalLongitude: Optional[str] = None
+    recordedBy: Optional[str] = None
+    associatedCollectors: Optional[str] = None
+    minimumElevationInMeters: Optional[str] = None
 
 
     def __init__(self, image_path: str, **kwargs):
