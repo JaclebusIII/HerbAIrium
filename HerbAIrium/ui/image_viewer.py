@@ -91,7 +91,7 @@ def render_image_display():
             st.metric("Decimal Latitude", st.session_state.metadata.decimalLatitude)
             st.metric("Decimal Longitude", st.session_state.metadata.decimalLongitude)
             st.metric("Recorded By", st.session_state.metadata.recordedBy)
-            st.metric("Associated Collectors", st.session_state.metadata.associatedCollectors)
+            st.metric("Associated Collectors", ", ".join(st.session_state.metadata.associatedCollectors))
             st.metric("Minimum Elevation in Meters", st.session_state.metadata.minimumElevationInMeters)
         with ai_tab:
             render_action_buttons()

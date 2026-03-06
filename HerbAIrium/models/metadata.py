@@ -18,7 +18,7 @@ class Metadata(BaseSettings):
     ai_result: Optional[str] = None
 
     catalogNumber: Optional[str] = None
-    recordNumber: Optional[str] = None
+    recordNumber: Optional[int] = None
     family: Optional[str] = None
     scientificName: Optional[str] = None
     scientificNameAuthorship: Optional[str] = None
@@ -27,11 +27,11 @@ class Metadata(BaseSettings):
     stateProvince: Optional[str] = None
     County: Optional[str] = None
     Locality: Optional[str] = None
-    decimalLatitude: Optional[str] = None
-    decimalLongitude: Optional[str] = None
+    decimalLatitude: Optional[float] = None
+    decimalLongitude: Optional[float] = None
     recordedBy: Optional[str] = None
-    associatedCollectors: Optional[str] = None
-    minimumElevationInMeters: Optional[str] = None
+    associatedCollectors: Optional[list[str]] = None
+    minimumElevationInMeters: Optional[int] = None
 
 
     def __init__(self, image_path: str, **kwargs):
