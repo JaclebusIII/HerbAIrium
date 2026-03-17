@@ -2,10 +2,7 @@
 Utility functions for HerbAIrium UI.
 Includes file handling, OCR processing, and formatting helpers.
 """
-import sys
 import json
-
-import streamlit as st
 from pathlib import Path
 
 # Add parent directory to path to import clients
@@ -92,6 +89,70 @@ def json_to_dict(llm_result: str):
         return None
 
 
+def _blank_json_value(v) -> bool:
+    if v is None:
+        return True
+    if isinstance(v, str) and not v.strip():
+        return True
+    return False
+
+
+def _json_opt_int(v):
+    if _blank_json_value(v):
+        return None
+    try:
+        return int(float(str(v).strip()))
+    except (TypeError, ValueError):
+        return None
+
+
+def _json_opt_float(v):
+    if _blank_json_value(v):
+        return None
+    try:
+        return float(str(v).strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def _json_opt_str(v):
+    if v is None:
+        return None
+    s = str(v).strip()
+    return s if s else None
+
+
+def _json_collectors(v):
+    if _blank_json_value(v):
+        return None
+    if isinstance(v, list):
+        out = [str(x).strip() for x in v if x is not None and str(x).strip()]
+        return out or None
+    if isinstance(v, str) and v.strip():
+        return [v.strip()]
+    return None
+
+
+def apply_parsed_json_to_metadata(metadata: Metadata, d: dict) -> None:
+    """Map LLM JSON onto Metadata with types safe for Pydantic / JSON save."""
+    c = d.get("catalogNumber")
+    metadata.catalogNumber = None if _blank_json_value(c) else (str(c).strip() or None)
+    metadata.recordNumber = _json_opt_int(d.get("recordNumber"))
+    metadata.family = _json_opt_str(d.get("family"))
+    metadata.scientificName = _json_opt_str(d.get("scientificName"))
+    metadata.scientificNameAuthorship = _json_opt_str(d.get("scientificNameAuthorship"))
+    metadata.eventDate = _json_opt_str(d.get("eventDate"))
+    metadata.country = _json_opt_str(d.get("country"))
+    metadata.stateProvince = _json_opt_str(d.get("stateProvince"))
+    metadata.County = _json_opt_str(d.get("County"))
+    metadata.Locality = _json_opt_str(d.get("Locality"))
+    metadata.decimalLatitude = _json_opt_float(d.get("decimalLatitude"))
+    metadata.decimalLongitude = _json_opt_float(d.get("decimalLongitude"))
+    metadata.recordedBy = _json_opt_str(d.get("recordedBy"))
+    metadata.associatedCollectors = _json_collectors(d.get("associatedCollectors"))
+    metadata.minimumElevationInMeters = _json_opt_int(d.get("minimumElevationInMeters"))
+
+
 def format_file_size(size_bytes):
     """
     Format file size in bytes to human-readable string.
@@ -142,21 +203,8 @@ def llm_parse_transcription_and_save_results(
         metadata.ai_result = llm_parse_result
         if llm_parse_result is not None:
             json_result = json_to_dict(llm_parse_result)
-            if json_result is not None:
-                metadata.recordNumber = json_result["recordNumber"]
-                metadata.family = json_result["family"]
-                metadata.scientificName = json_result["scientificName"]
-                metadata.scientificNameAuthorship = json_result["scientificNameAuthorship"]
-                metadata.eventDate = json_result["eventDate"]
-                metadata.country = json_result["country"]
-                metadata.stateProvince = json_result["stateProvince"]
-                metadata.County = json_result["County"]
-                metadata.Locality = json_result["Locality"]
-                metadata.decimalLatitude = json_result["decimalLatitude"]
-                metadata.decimalLongitude = json_result["decimalLongitude"]
-                metadata.recordedBy = json_result["recordedBy"]
-                metadata.associatedCollectors = json_result["associatedCollectors"]
-                metadata.minimumElevationInMeters = json_result["minimumElevationInMeters"]
+            if json_result is not None and isinstance(json_result, dict):
+                apply_parsed_json_to_metadata(metadata, json_result)
         metadata.save()
     else:
         raise Exception("No OCR result found for this image.")
