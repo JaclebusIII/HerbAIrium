@@ -7,3 +7,6 @@ __pycache__
 
 .herbairium_config.json
 *.json
+
+HerbAIrium/dist
+HerbAIrium/build
