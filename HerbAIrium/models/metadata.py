@@ -13,7 +13,6 @@ def _blank(v: Any) -> bool:
 
 
 def _sanitize_metadata_dict(data: dict) -> dict:
-    """Sidecar JSON may have '' or invalid types; coerce before Pydantic validation."""
     d = dict(data)
 
     def opt_int(key: str) -> None:
