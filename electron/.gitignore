@@ -1,0 +1,5 @@
+node_modules/
+renderer/node_modules/
+main/dist/
+renderer/dist/
+dist/
