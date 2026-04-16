@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Required: allow the PyInstaller-bundled sidecar to run.
+       Without this, Gatekeeper rejects the binary because its
+       embedded libraries are not signed with this team's ID. -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+
+  <!-- Allow outbound HTTP/HTTPS to reach the DeepInfra API -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+</dict>
+</plist>

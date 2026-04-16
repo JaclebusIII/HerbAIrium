@@ -1,0 +1,49 @@
+appId: com.herbairium.app
+productName: HerbAIrium
+copyright: Copyright © 2025 HerbAIrium
+
+directories:
+  output: ../dist
+  buildResources: ./build
+
+# Files to pack into the ASAR archive
+files:
+  - main/dist/**
+  - renderer/dist/**
+  - package.json
+
+# ─── macOS ──────────────────────────────────────────────────────────────────
+mac:
+  target: dmg
+  category: public.app-category.productivity
+  icon: build/icons/icon.icns
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # Sidecar binary for macOS (built by PyInstaller on a Mac)
+  extraResources:
+    - from: ../HerbAIrium/sidecar/dist/herbairium-sidecar
+      to: sidecar/herbairium-sidecar
+
+dmg:
+  sign: false
+  title: HerbAIrium
+
+# ─── Windows ────────────────────────────────────────────────────────────────
+win:
+  target: nsis
+  icon: build/icons/icon.ico
+  requestedExecutionLevel: asInvoker
+  # Sidecar binary for Windows (built by PyInstaller on Windows)
+  extraResources:
+    - from: ../HerbAIrium/sidecar/dist/herbairium-sidecar.exe
+      to: sidecar/herbairium-sidecar.exe
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  installerIcon: build/icons/icon.ico
+  uninstallerIcon: build/icons/icon.ico

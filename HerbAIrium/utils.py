@@ -5,7 +5,6 @@ Includes file handling, OCR processing, and formatting helpers.
 import sys
 import json
 
-import streamlit as st
 from pathlib import Path
 
 # Add parent directory to path to import clients

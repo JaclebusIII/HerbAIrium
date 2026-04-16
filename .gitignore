@@ -1,8 +1,22 @@
 venv
+.venv
 .python-version
 notes
 __pycache__
+.DS_Store
 
-
+# Workspace config files (contain API keys)
 .herbairium_config.json
+.herbairium_configuration.json
+
+
+# JSON files (but not project config files)
 *.json
+!package.json
+!package-lock.json
+!tsconfig*.json
+!vite.config.*
+!tailwind.config.*
+!postcss.config.*
+!electron-builder.yml
+dist/
