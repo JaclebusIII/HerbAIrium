@@ -47,6 +47,13 @@ This starts the Vite dev server, compiles the Electron main process, and launche
 
 ## Building a release
 
+### Automated Windows build
+
+Open **Actions → Build Windows installer → Run workflow** on GitHub. When the
+workflow finishes, download the `HerbAIrium-Windows` artifact. It contains the
+Windows installer and does not require Python or Node.js on the destination
+computer.
+
 ### 1. Build the Python sidecar binary
 
 Run this on the target platform (macOS for `.dmg`, Windows for `.exe`):

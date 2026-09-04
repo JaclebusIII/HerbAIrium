@@ -1,0 +1,69 @@
+name: Build Windows installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            HerbAIrium/sidecar/requirements.txt
+
+      - name: Install Python dependencies
+        run: python -m pip install -r HerbAIrium/sidecar/requirements.txt pyinstaller
+
+      - name: Build Windows sidecar
+        run: >
+          pyinstaller HerbAIrium/sidecar/sidecar.spec
+          --noconfirm
+          --clean
+          --distpath HerbAIrium/sidecar/dist
+          --workpath HerbAIrium/sidecar/build
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: |
+            electron/package-lock.json
+            electron/renderer/package-lock.json
+
+      - name: Install Electron dependencies
+        working-directory: electron
+        run: npm ci
+
+      - name: Install renderer dependencies
+        working-directory: electron/renderer
+        run: npm ci
+
+      - name: Build Windows installer
+        working-directory: electron
+        run: npm run package:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: HerbAIrium-Windows
+          path: dist/*.exe
+          if-no-files-found: error
+
