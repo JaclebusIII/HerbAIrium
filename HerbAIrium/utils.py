@@ -91,6 +91,10 @@ def json_to_dict(llm_result: str):
         return None
 
 
+def catalog_number_from_image_path(image_path: str) -> str:
+    return Path(image_path).stem
+
+
 def format_file_size(size_bytes):
     """
     Format file size in bytes to human-readable string.
@@ -137,6 +141,7 @@ def llm_parse_transcription_and_save_results(
     metadata = Metadata(image_path=image_path)
     transcription = metadata.ocr_result
     if transcription is not None:
+        metadata.catalogNumber = catalog_number_from_image_path(image_path)
         llm_parse_result = llm_parse_transcription(transcription, configuration)
         metadata.ai_result = llm_parse_result
         if llm_parse_result is not None:
