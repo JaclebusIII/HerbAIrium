@@ -27,7 +27,6 @@ class Configuration(BaseSettings):
     llm_parse_prompt: str = (
         "The following is a transcription of a herbarium specimen image. "
         "Please parse the transcription and extract the following information into a JSON format:\n\n"
-        "catalogNumber: This is the barcode number. Should be an int\n"
         "recordNumber: This is the random number on the label, often closely located to the collector's name. Should be an int\n"
         "family: Always ends with '-aceae'. Should be a string\n"
         "scientificName: Should include both genus and species names. The first letter of the genus name should always be capitalized. The species name should always be all lowercase. Should be a string\n"
