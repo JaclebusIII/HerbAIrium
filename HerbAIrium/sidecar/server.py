@@ -51,6 +51,7 @@ if args.dev:
         allow_origins=["http://localhost:5173"],
         allow_methods=["*"],
         allow_headers=["*"],
+        allow_private_network=True,
     )
 
 _cfg: Configuration | None = None

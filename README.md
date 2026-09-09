@@ -18,7 +18,7 @@ Double-click the installer. No Python or Node.js required.
 
 ### Requirements
 - Python 3.10
-- Node.js 18+
+- Node.js 22.12+
 - DeepInfra API key
 
 ### Setup
@@ -27,7 +27,7 @@ Double-click the installer. No Python or Node.js required.
 # Python dependencies (for the sidecar)
 python -m venv .venv
 source .venv/bin/activate      # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r HerbAIrium/sidecar/requirements.txt
 
 # Node dependencies (for Electron + React)
 cd electron && npm install

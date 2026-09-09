@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog } from "electron";
 import * as path from "path";
-import { startSidecar, killSidecar } from "./sidecar";
+import { startSidecar, killSidecar, getSidecarPort } from "./sidecar";
 import { registerIpc } from "./ipc";
 
 let mainWindow: BrowserWindow | null = null;
@@ -31,7 +31,7 @@ async function createWindow(): Promise<void> {
       return;
     }
   } else {
-    await mainWindow.loadURL("http://localhost:5173");
+    await mainWindow.loadURL(`http://localhost:5173/?sidecarPort=${getSidecarPort()}`);
     mainWindow.webContents.openDevTools();
   }
 

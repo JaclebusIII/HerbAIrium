@@ -6,10 +6,15 @@ import { initApi } from "./api";
 import "./index.css";
 
 async function bootstrap() {
-  // In Electron the preload script exposes electronAPI; in a browser dev server
-  // we fall back to a hard-coded port for convenient testing.
+  const portParam = new URLSearchParams(window.location.search).get("sidecarPort");
+  const portFromUrl = portParam === null ? null : Number(portParam);
+
+  // Dev mode passes the dynamic sidecar port in the renderer URL. Packaged
+  // builds use the preload bridge, while standalone browser testing uses 8765.
   let port = 8765;
-  if (typeof window !== "undefined" && window.electronAPI) {
+  if (portFromUrl !== null && Number.isInteger(portFromUrl) && portFromUrl > 0) {
+    port = portFromUrl;
+  } else if (window.electronAPI) {
     port = await window.electronAPI.getSidecarPort();
   }
   initApi(port);
