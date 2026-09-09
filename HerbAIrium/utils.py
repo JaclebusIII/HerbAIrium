@@ -91,9 +91,8 @@ def json_to_dict(llm_result: str):
         return None
 
 
-def catalog_number_from_image_path(image_path: str) -> str | None:
-    catalog_number = "".join(character for character in Path(image_path).stem if character.isdigit())
-    return catalog_number or None
+def catalog_number_from_image_path(image_path: str) -> str:
+    return Path(image_path).stem
 
 
 def format_file_size(size_bytes):
