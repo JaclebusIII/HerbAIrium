@@ -47,10 +47,10 @@ This starts the Vite dev server, compiles the Electron main process, and launche
 
 ## Building a release
 
-### Automated Windows build
+### Automated desktop release
 
-Push a version tag to automatically build the installer and publish a GitHub
-Release with generated release notes:
+Push a version tag to automatically build the Windows `.exe` and macOS `.dmg`,
+then publish both installers in one GitHub Release with generated release notes:
 
 ```bash
 git tag -a v0.2.0 -m "HerbAIrium v0.2.0"
@@ -58,8 +58,8 @@ git push origin v0.2.0
 ```
 
 The tag controls the application and installer version. The workflow also
-supports manual runs from **Actions → Build Windows installer → Run workflow**;
-manual runs upload an artifact without creating a release.
+supports manual runs from **Actions → Build desktop release → Run workflow**;
+manual runs upload both installers as artifacts without creating a release.
 
 ### 1. Build the Python sidecar binary
 
