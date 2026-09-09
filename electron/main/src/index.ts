@@ -21,6 +21,9 @@ async function createWindow(): Promise<void> {
   });
 
   registerIpc(mainWindow);
+  mainWindow.once("ready-to-show", () => {
+    mainWindow?.show();
+  });
 
   if (app.isPackaged) {
     try {
@@ -34,10 +37,6 @@ async function createWindow(): Promise<void> {
     await mainWindow.loadURL(`http://localhost:5173/?sidecarPort=${getSidecarPort()}`);
     mainWindow.webContents.openDevTools();
   }
-
-  mainWindow.once("ready-to-show", () => {
-    mainWindow?.show();
-  });
 
   mainWindow.on("closed", () => {
     mainWindow = null;
