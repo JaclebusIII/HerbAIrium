@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getImage, getMetadata, runOcr, runParse } from "../api";
+import { getImage, getMetadata, getThumbnail, runOcr, runParse } from "../api";
 import { MetadataPanel } from "../components/MetadataPanel";
 import { WorkspaceExplorer } from "../components/WorkspaceExplorer";
 import { useApp } from "../context/AppContext";
@@ -31,7 +31,8 @@ export function ImageViewerTab() {
   } = useApp();
   const total = imageFiles.length;
 
-  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
+  const [detailImageUri, setDetailImageUri] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<Metadata | null>(null);
   const [busy, setBusy] = useState<"ocr" | "parse" | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -57,29 +58,42 @@ export function ImageViewerTab() {
     const requestId = ++loadRequestId.current;
     const controller = new AbortController();
     let objectUrl: string | null = null;
-    setImageUri(null);
+    setThumbnailUri(null);
+    setDetailImageUri(null);
     setMetadata(null);
     setZoom(INITIAL_ZOOM);
     setImageHovered(false);
     setMagnifierPosition(null);
 
     Promise.all([
-      getImage(currentIndex, controller.signal),
+      getThumbnail(currentIndex),
       getMetadata(currentIndex, controller.signal),
     ])
-      .then(([image, meta]) => {
-        objectUrl = URL.createObjectURL(image);
-        if (loadRequestId.current !== requestId) {
-          URL.revokeObjectURL(objectUrl);
-          return;
-        }
-        setImageUri(objectUrl);
+      .then(([thumbnail, meta]) => {
+        if (loadRequestId.current !== requestId) return;
+        setThumbnailUri(thumbnail.data_uri);
         setMetadata(meta);
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         if (loadRequestId.current === requestId) {
           showToast(err instanceof Error ? err.message : String(err));
+        }
+      });
+
+    getImage(currentIndex, controller.signal)
+      .then((image) => {
+        objectUrl = URL.createObjectURL(image);
+        if (loadRequestId.current !== requestId) {
+          URL.revokeObjectURL(objectUrl);
+          return;
+        }
+        setDetailImageUri(objectUrl);
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (loadRequestId.current === requestId) {
+          showToast(`Detailed image unavailable: ${err instanceof Error ? err.message : String(err)}`);
         }
       });
 
@@ -194,6 +208,7 @@ export function ImageViewerTab() {
   }
 
   const filename = imageFiles[currentIndex]?.split(/[\\/]/).pop() ?? "";
+  const imageUri = detailImageUri ?? thumbnailUri;
 
   return (
     <div className="p-4 overflow-y-auto h-full relative">
