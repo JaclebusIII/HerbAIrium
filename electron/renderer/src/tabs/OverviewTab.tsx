@@ -1,117 +1,74 @@
-import { useState } from "react";
-import { batchProcessStream } from "../api";
 import { useApp } from "../context/AppContext";
 
-interface Summary {
-  ocr_ok: number;
-  ocr_fail: number;
-  llm_ok: number;
-  llm_fail: number;
-}
-
 export function OverviewTab() {
-  const { imageFiles, setImageSummaries, config } = useApp();
-  const [running, setRunning] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [statusLine, setStatusLine] = useState("");
-  const [summary, setSummary] = useState<Summary | null>(null);
-
-  async function handleBatch() {
-    if (!config?.deepinfra_api_key) {
-      setStatusLine("Add API key in Configuration, then try again.");
-      return;
-    }
-    setRunning(true);
-    setProgress(0);
-    setStatusLine("");
-    setSummary(null);
-
-    try {
-      let ocrDone = 0, ocrTotal = imageFiles.length;
-      let llmDone = 0, llmTotal = 0;
-
-      for await (const event of batchProcessStream()) {
-        if (event.stage === "done") {
-          setSummary({
-            ocr_ok: event.ocr_ok ?? 0,
-            ocr_fail: event.ocr_fail ?? 0,
-            llm_ok: event.llm_ok ?? 0,
-            llm_fail: event.llm_fail ?? 0,
-          });
-          setProgress(1);
-          setStatusLine("Done.");
-        } else if (event.stage === "ocr") {
-          ocrDone = event.current ?? ocrDone;
-          ocrTotal = event.total ?? ocrTotal;
-          setProgress(ocrDone / (ocrTotal * 2));
-          setStatusLine(`OCR ${ocrDone}/${ocrTotal}: ${event.filename ?? ""}`);
-          if (event.status === "ok" && event.filename) {
-            setImageSummaries((images) => images.map((image) => (
-              image.filename === event.filename
-                ? { ...image, ocr_complete: true, status_error: null }
-                : image
-            )));
-          }
-        } else if (event.stage === "llm") {
-          llmDone = event.current ?? llmDone;
-          llmTotal = event.total ?? llmTotal;
-          setProgress(0.5 + (llmTotal > 0 ? llmDone / (llmTotal * 2) : 0));
-          setStatusLine(`LLM ${llmDone}/${llmTotal}: ${event.filename ?? ""}`);
-          if (event.status === "ok" && event.filename) {
-            setImageSummaries((images) => images.map((image) => (
-              image.filename === event.filename
-                ? { ...image, ocr_complete: true, parse_complete: true, status_error: null }
-                : image
-            )));
-          }
-        }
-      }
-    } catch (err) {
-      setStatusLine(err instanceof Error ? err.message : String(err));
-    } finally {
-      setRunning(false);
-    }
-  }
+  const {
+    imageFiles,
+    imageSummaries,
+    batchRunning,
+    batchProgress,
+    batchStatusLine,
+    batchSummary,
+    startBatch,
+  } = useApp();
+  const transcribedCount = imageSummaries.filter((image) => image.ocr_complete).length;
+  const parsedCount = imageSummaries.filter((image) => image.parse_complete).length;
 
   return (
-    <div className="p-4">
+    <div className="p-4 overflow-y-auto h-full">
       <h2 className="text-xl font-semibold mb-4">Overview</h2>
-      <p className="text-sm text-gray-600 mb-4">
-        {imageFiles.length} image{imageFiles.length !== 1 ? "s" : ""} in workspace.
-      </p>
+
+      <div className="grid grid-cols-3 gap-3 mb-5">
+        <Metric label="Photos" value={imageFiles.length} />
+        <Metric label="Transcribed" value={transcribedCount} />
+        <Metric label="Parsed" value={parsedCount} />
+      </div>
 
       <button
         className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
-        onClick={handleBatch}
-        disabled={running || imageFiles.length === 0}
+        onClick={() => void startBatch()}
+        disabled={batchRunning || imageFiles.length === 0}
       >
-        {running ? "Processing…" : "Parse all images (OCR + LLM)"}
+        {batchRunning ? "Processing..." : "Parse all images (OCR + LLM)"}
       </button>
 
-      {running && (
+      {batchRunning && (
         <div className="mt-4">
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="relative w-full bg-gray-200 rounded-full h-5 overflow-hidden">
             <div
-              className="bg-green-600 h-2 rounded-full transition-all"
-              style={{ width: `${Math.round(progress * 100)}%` }}
+              className="bg-green-600 h-full rounded-full transition-all"
+              style={{ width: `${Math.round(batchProgress * 100)}%` }}
             />
+            <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-gray-900">
+              {Math.round(batchProgress * 100)}%
+            </span>
           </div>
-          <p className="text-sm text-gray-600 mt-1">{statusLine}</p>
+          <p className="text-sm text-gray-600 mt-1">{batchStatusLine}</p>
         </div>
       )}
 
-      {!running && statusLine && <p className="mt-3 text-sm text-gray-600">{statusLine}</p>}
+      {!batchRunning && batchStatusLine && (
+        <p className="mt-3 text-sm text-gray-600">{batchStatusLine}</p>
+      )}
 
-      {summary && (
+      {batchSummary && (
         <div className="mt-4 bg-gray-50 border rounded-lg p-4 text-sm space-y-1">
           <p>
-            <span className="font-medium">OCR:</span> {summary.ocr_ok} ok, {summary.ocr_fail} failed
+            <span className="font-medium">OCR:</span> {batchSummary.ocr_ok} ok, {batchSummary.ocr_fail} failed
           </p>
           <p>
-            <span className="font-medium">LLM:</span> {summary.llm_ok} ok, {summary.llm_fail} failed
+            <span className="font-medium">LLM:</span> {batchSummary.llm_ok} ok, {batchSummary.llm_fail} failed
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border bg-gray-50 p-4">
+      <p className="text-2xl font-semibold text-gray-900">{value}</p>
+      <p className="text-sm text-gray-600">{label}</p>
     </div>
   );
 }

@@ -76,10 +76,17 @@ export interface BatchProgressEvent {
   current?: number;
   total?: number;
   filename?: string;
-  status?: "ok" | "error";
+  status?: "running" | "ok" | "error";
   error?: string | null;
   ocr_ok?: number;
   ocr_fail?: number;
   llm_ok?: number;
   llm_fail?: number;
+}
+
+export interface BatchSummary {
+  ocr_ok: number;
+  ocr_fail: number;
+  llm_ok: number;
+  llm_fail: number;
 }

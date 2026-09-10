@@ -63,8 +63,8 @@ export function runParse(index: number): Promise<Metadata> {
 }
 
 // EventSource only supports GET; the batch endpoint is POST, so we read SSE via fetch.
-export async function* batchProcessStream(): AsyncGenerator<BatchProgressEvent> {
-  const res = await fetch(`${baseUrl}/batch/process`, { method: "POST" });
+export async function* batchProcessStream(signal?: AbortSignal): AsyncGenerator<BatchProgressEvent> {
+  const res = await fetch(`${baseUrl}/batch/process`, { method: "POST", signal });
   if (!res.ok || !res.body) throw new Error("Batch process failed to start");
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
