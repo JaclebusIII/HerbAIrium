@@ -231,9 +231,9 @@ export function ImageViewerTab() {
         <span className="text-sm text-gray-400 ml-2">{filename}</span>
       </div>
 
-      <div className="flex flex-col xl:flex-row gap-6">
+      <div className="flex gap-6">
         {/* Image */}
-        <div className="w-full xl:w-[min(60vw,800px)] shrink-0">
+        <div className="w-[48%] min-w-[420px] max-w-[700px] shrink-0">
           <div
             ref={imageContainerRef}
             className="relative w-full h-[min(65vh,700px)] min-h-[500px] bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden"
