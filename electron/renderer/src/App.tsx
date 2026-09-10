@@ -3,13 +3,21 @@ import { WorkspaceView } from "./views/WorkspaceView";
 import { MainView } from "./views/MainView";
 
 export function App() {
-  const { workspaceFolder, setWorkspaceFolder, setConfig, setImageFiles, setCurrentIndex } = useApp();
+  const {
+    workspaceFolder,
+    setWorkspaceFolder,
+    setConfig,
+    setImageFiles,
+    setImageSummaries,
+    setCurrentIndex,
+  } = useApp();
 
   function handleChangeWorkspace() {
     setWorkspaceFolder(null);
     setConfig(null);
     setImageFiles([]);
-    setCurrentIndex(0);
+    setImageSummaries([]);
+    setCurrentIndex(null);
   }
 
   if (!workspaceFolder) {

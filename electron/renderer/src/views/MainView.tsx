@@ -8,7 +8,7 @@ const TABS = ["Overview", "Image viewer", "Configuration"] as const;
 
 export function MainView({ onChangeWorkspace }: { onChangeWorkspace: () => void }) {
   const { workspaceFolder, imageFiles } = useApp();
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState(1);
 
   const folderName = workspaceFolder?.split(/[\\/]/).pop() ?? "";
 

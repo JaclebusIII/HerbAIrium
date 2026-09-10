@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { getMetadata, getThumbnail, runOcr, runParse } from "../api";
 import { MetadataPanel } from "../components/MetadataPanel";
+import { WorkspaceExplorer } from "../components/WorkspaceExplorer";
 import { useApp } from "../context/AppContext";
 import type { Metadata } from "../types";
 
 export function ImageViewerTab() {
-  const { imageFiles, currentIndex, setCurrentIndex, config } = useApp();
+  const {
+    imageFiles,
+    imageSummaries,
+    setImageSummaries,
+    currentIndex,
+    setCurrentIndex,
+    config,
+  } = useApp();
   const total = imageFiles.length;
 
   const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
@@ -13,6 +21,9 @@ export function ImageViewerTab() {
   const [busy, setBusy] = useState<"ocr" | "parse" | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadRequestId = useRef(0);
+  const currentIndexRef = useRef(currentIndex);
+  currentIndexRef.current = currentIndex;
 
   function showToast(msg: string) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -22,58 +33,95 @@ export function ImageViewerTab() {
 
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
-  async function load(index: number) {
+  useEffect(() => {
+    if (currentIndex === null) return;
+    const requestId = ++loadRequestId.current;
     setThumbnailUri(null);
     setMetadata(null);
-    try {
-      const [thumb, meta] = await Promise.all([getThumbnail(index), getMetadata(index)]);
-      setThumbnailUri(thumb.data_uri);
-      setMetadata(meta);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : String(err));
-    }
-  }
 
-  useEffect(() => {
-    load(currentIndex);
+    Promise.all([getThumbnail(currentIndex), getMetadata(currentIndex)])
+      .then(([thumb, meta]) => {
+        if (loadRequestId.current !== requestId) return;
+        setThumbnailUri(thumb.data_uri);
+        setMetadata(meta);
+      })
+      .catch((err) => {
+        if (loadRequestId.current === requestId) {
+          showToast(err instanceof Error ? err.message : String(err));
+        }
+      });
+
+    return () => {
+      loadRequestId.current += 1;
+    };
   }, [currentIndex]);
 
+  function updateSummary(index: number, meta: Metadata) {
+    setImageSummaries((images) => images.map((image) => (
+      image.index === index
+        ? {
+            ...image,
+            ocr_complete: Boolean(meta.ocr_result),
+            parse_complete: Boolean(meta.ai_result),
+            status_error: null,
+          }
+        : image
+    )));
+  }
+
   async function handleOcr() {
+    if (currentIndex === null) return;
     if (!config?.deepinfra_api_key) {
       showToast("Add API key in Configuration, then try again.");
       return;
     }
     setBusy("ocr");
+    const operationIndex = currentIndex;
     try {
-      await runOcr(currentIndex);
-      const meta = await getMetadata(currentIndex);
-      setMetadata(meta);
-      showToast("OCR complete.");
+      await runOcr(operationIndex);
+      const meta = await getMetadata(operationIndex);
+      updateSummary(operationIndex, meta);
+      if (currentIndexRef.current === operationIndex) {
+        setMetadata(meta);
+        showToast("OCR complete.");
+      }
     } catch (err) {
-      showToast(err instanceof Error ? err.message : String(err));
+      if (currentIndexRef.current === operationIndex) {
+        showToast(err instanceof Error ? err.message : String(err));
+      }
     } finally {
       setBusy(null);
     }
   }
 
   async function handleParse() {
+    if (currentIndex === null) return;
     if (!config?.deepinfra_api_key) {
       showToast("Add API key in Configuration, then try again.");
       return;
     }
     setBusy("parse");
+    const operationIndex = currentIndex;
     try {
-      const meta = await runParse(currentIndex);
-      setMetadata(meta);
-      showToast("LLM parse complete.");
+      const meta = await runParse(operationIndex);
+      updateSummary(operationIndex, meta);
+      if (currentIndexRef.current === operationIndex) {
+        setMetadata(meta);
+        showToast("LLM parse complete.");
+      }
     } catch (err) {
-      showToast(err instanceof Error ? err.message : String(err));
+      if (currentIndexRef.current === operationIndex) {
+        showToast(err instanceof Error ? err.message : String(err));
+      }
     } finally {
       setBusy(null);
     }
   }
 
   if (total === 0) return <div className="p-4 text-gray-500">No images in workspace.</div>;
+  if (currentIndex === null) {
+    return <WorkspaceExplorer images={imageSummaries} onSelect={setCurrentIndex} />;
+  }
 
   const filename = imageFiles[currentIndex]?.split(/[\\/]/).pop() ?? "";
 
@@ -81,6 +129,13 @@ export function ImageViewerTab() {
     <div className="p-4 overflow-y-auto h-full relative">
       {/* Navigation */}
       <div className="flex items-center gap-2 mb-4">
+        <button
+          type="button"
+          onClick={() => setCurrentIndex(null)}
+          className="px-3 py-1 border rounded text-sm hover:bg-gray-100 mr-2"
+        >
+          Back to images
+        </button>
         <NavButton onClick={() => setCurrentIndex(0)} disabled={currentIndex === 0}>⏮</NavButton>
         <NavButton onClick={() => setCurrentIndex(currentIndex - 1)} disabled={currentIndex === 0}>‹</NavButton>
         <span className="text-sm text-gray-600 mx-2">

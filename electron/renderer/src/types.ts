@@ -39,11 +39,27 @@ export interface ThumbnailResponse {
   filename: string;
 }
 
+export interface ImageSummary {
+  index: number;
+  path: string;
+  filename: string;
+  ocr_complete: boolean;
+  parse_complete: boolean;
+  status_error: string | null;
+}
+
 export interface WorkspaceOpenResponse {
   folder_path: string;
   image_count: number;
   image_files: string[];
+  images: ImageSummary[];
   config: Configuration;
+}
+
+export interface ImagesResponse {
+  image_files: string[];
+  images: ImageSummary[];
+  count: number;
 }
 
 declare global {
