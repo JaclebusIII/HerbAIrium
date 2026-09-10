@@ -10,9 +10,20 @@ export function App() {
     setImageFiles,
     setImageSummaries,
     setCurrentIndex,
+    batchRunning,
+    cancelBatch,
+    resetBatchState,
   } = useApp();
 
   function handleChangeWorkspace() {
+    if (batchRunning) {
+      const confirmed = window.confirm(
+        "A bulk parse is still running. Change workspace and cancel the remaining work?",
+      );
+      if (!confirmed) return;
+      cancelBatch();
+    }
+    resetBatchState();
     setWorkspaceFolder(null);
     setConfig(null);
     setImageFiles([]);
