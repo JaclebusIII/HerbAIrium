@@ -7,7 +7,7 @@ import { ConfigTab } from "../tabs/ConfigTab";
 const TABS = ["Overview", "Image viewer", "Configuration"] as const;
 
 export function MainView({ onChangeWorkspace }: { onChangeWorkspace: () => void }) {
-  const { workspaceFolder, imageFiles } = useApp();
+  const { workspaceFolder, imageFiles, batchRunning } = useApp();
   const [activeTab, setActiveTab] = useState(1);
 
   const folderName = workspaceFolder?.split(/[\\/]/).pop() ?? "";
@@ -44,6 +44,9 @@ export function MainView({ onChangeWorkspace }: { onChangeWorkspace: () => void 
             onClick={() => setActiveTab(i)}
           >
             {tab}
+            {i === 0 && batchRunning && (
+              <span className="ml-2 text-xs text-green-600">Running</span>
+            )}
           </button>
         ))}
       </div>

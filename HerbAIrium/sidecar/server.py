@@ -234,8 +234,18 @@ async def _collect(
     lock: asyncio.Lock,
     done_counter: list[int],
     total: int,
-) -> tuple[str, bool, str | None, str]:
+    events: asyncio.Queue[dict],
+    results: list[tuple[str, bool, str | None]],
+) -> None:
     async with sem:
+        await events.put({
+            "stage": stage,
+            "current": done_counter[0],
+            "total": total,
+            "filename": Path(path).name,
+            "status": "running",
+            "error": None,
+        })
         try:
             await asyncio.to_thread(func, path, cfg)
             ok, err = True, None
@@ -243,7 +253,8 @@ async def _collect(
             ok, err = False, str(exc)
     async with lock:
         done_counter[0] += 1
-        event = json.dumps({
+        results.append((path, ok, err))
+        await events.put({
             "stage": stage,
             "current": done_counter[0],
             "total": total,
@@ -251,46 +262,97 @@ async def _collect(
             "status": "ok" if ok else "error",
             "error": err,
         })
-        event = f"data: {event}\n\n"
-    return (path, ok, err, event)
+
+
+def _sse_event(event: dict) -> str:
+    return f"data: {json.dumps(event)}\n\n"
+
+
+async def _stream_stage(
+    stage: str,
+    func: Callable,
+    files: list[str],
+    cfg: Configuration,
+    sem: asyncio.Semaphore,
+    results: list[tuple[str, bool, str | None]],
+):
+    total = len(files)
+    if total == 0:
+        return
+
+    events: asyncio.Queue[dict] = asyncio.Queue()
+    lock = asyncio.Lock()
+    done_counter = [0]
+    tasks = [
+        asyncio.create_task(
+            _collect(stage, func, path, cfg, sem, lock, done_counter, total, events, results)
+        )
+        for path in files
+    ]
+
+    try:
+        completed = 0
+        while completed < total:
+            event = await events.get()
+            yield _sse_event(event)
+            if event["status"] in ("ok", "error"):
+                completed += 1
+        await asyncio.gather(*tasks)
+    finally:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 async def _batch_stream(cfg: Configuration):
-    files = cfg.image_files
-    n = len(files)
+    files = list(cfg.image_files)
     sem = asyncio.Semaphore(5)
-    lock = asyncio.Lock()
-    ocr_done = [0]
-
-    ocr_results = await asyncio.gather(
-        *[_collect("ocr", process_ocr_and_save_results, f, cfg, sem, lock, ocr_done, n) for f in files]
-    )
+    ocr_results: list[tuple[str, bool, str | None]] = []
 
     ocr_ok: list[str] = []
     ocr_fail = 0
-    for path, ok, _err, event in ocr_results:
+    async for event in _stream_stage(
+        "ocr",
+        process_ocr_and_save_results,
+        files,
+        cfg,
+        sem,
+        ocr_results,
+    ):
         yield event
+    for path, ok, _err in ocr_results:
         if ok:
             ocr_ok.append(path)
         else:
             ocr_fail += 1
 
-    llm_done = [0]
+    llm_results: list[tuple[str, bool, str | None]] = []
     llm_ok = 0
     llm_fail = 0
 
-    if ocr_ok:
-        llm_results = await asyncio.gather(
-            *[_collect("llm", llm_parse_transcription_and_save_results, f, cfg, sem, lock, llm_done, len(ocr_ok)) for f in ocr_ok]
-        )
-        for _path, ok, _err, event in llm_results:
-            yield event
-            if ok:
-                llm_ok += 1
-            else:
-                llm_fail += 1
+    async for event in _stream_stage(
+        "llm",
+        llm_parse_transcription_and_save_results,
+        ocr_ok,
+        cfg,
+        sem,
+        llm_results,
+    ):
+        yield event
+    for _path, ok, _err in llm_results:
+        if ok:
+            llm_ok += 1
+        else:
+            llm_fail += 1
 
-    yield f'data: {{"stage":"done","ocr_ok":{len(ocr_ok)},"ocr_fail":{ocr_fail},"llm_ok":{llm_ok},"llm_fail":{llm_fail}}}\n\n'
+    yield _sse_event({
+        "stage": "done",
+        "ocr_ok": len(ocr_ok),
+        "ocr_fail": ocr_fail,
+        "llm_ok": llm_ok,
+        "llm_fail": llm_fail,
+    })
 
 
 def _handle_sigterm(*_):
