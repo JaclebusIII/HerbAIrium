@@ -50,8 +50,17 @@ export function getThumbnail(index: number): Promise<ThumbnailResponse> {
   return request(`/images/${index}/thumbnail`);
 }
 
-export function getMetadata(index: number): Promise<Metadata> {
-  return request(`/images/${index}/metadata`);
+export async function getImage(index: number, signal?: AbortSignal): Promise<Blob> {
+  const res = await fetch(`${baseUrl}/images/${index}/image`, { signal });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(detail.detail ?? res.statusText);
+  }
+  return res.blob();
+}
+
+export function getMetadata(index: number, signal?: AbortSignal): Promise<Metadata> {
+  return request(`/images/${index}/metadata`, { signal });
 }
 
 export function runOcr(index: number): Promise<{ ocr_result: string; image_path: string }> {

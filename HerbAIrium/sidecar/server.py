@@ -267,6 +267,30 @@ def get_thumbnail(index: int):
     return {"index": index, "data_uri": data_uri, "filename": Path(path).name}
 
 
+@app.get("/images/{index}/image")
+def get_image(index: int):
+    cfg = _require_workspace()
+    path = Path(_image_path(cfg, index))
+    media_types = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+    }
+
+    try:
+        media_type = media_types.get(path.suffix.lower())
+        if media_type is not None:
+            return Response(content=path.read_bytes(), media_type=media_type)
+
+        with PILImage.open(path) as im:
+            im.load()
+            buf = BytesIO()
+            im.convert("RGB").save(buf, format="JPEG", quality=95)
+        return Response(content=buf.getvalue(), media_type="image/jpeg")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.get("/images/{index}/metadata")
 def get_metadata(index: int):
     cfg = _require_workspace()
