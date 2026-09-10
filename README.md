@@ -18,7 +18,7 @@ Double-click the installer. No Python or Node.js required.
 
 ### Requirements
 - Python 3.10
-- Node.js 22.12+
+- Node.js 20+
 - DeepInfra API key
 
 ### Setup
@@ -93,17 +93,11 @@ npm run package:win    # → dist/HerbAIrium Setup x.x.x.exe
 
 HerbAIrium uses an **Electron + React** frontend backed by a **Python FastAPI sidecar**:
 
-```
-electron/
-  main/          Electron main process — spawns sidecar, native folder dialog
-  renderer/      React + Tailwind UI (Vite)
-  build/         electron-builder config, app icons, macOS entitlements
-
-HerbAIrium/
-  sidecar/       FastAPI server wrapping all AI processing logic
-  clients/       DeepInfra HTTP client
-  models/        Pydantic models for configuration and per-image metadata
-  utils.py       OCR + LLM orchestration
-```
-
 On startup, Electron finds a free port, spawns `herbairium-sidecar`, and health-polls it before showing the window. All AI calls go through the sidecar's REST API. Results are saved as `.json` sidecar files next to each image.
+
+See the **[HerbAIrium documentation](docs/README.md)** for diagrams and detailed guides to:
+
+- runtime architecture, Electron IPC, startup, shutdown, and React state
+- workspace, single-image, batch-processing, configuration, and export workflows
+- sidecar endpoints, file-backed configuration and metadata, and Darwin Core mapping
+- local development, desktop packaging, and automated releases
