@@ -67,6 +67,7 @@ declare global {
     electronAPI: {
       getSidecarPort: () => Promise<number>;
       openFolderDialog: () => Promise<string | null>;
+      confirmUnsavedConfiguration: () => Promise<"save" | "discard" | "cancel">;
     };
   }
 }

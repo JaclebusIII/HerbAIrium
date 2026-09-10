@@ -15,12 +15,12 @@ export function App() {
     resetBatchState,
   } = useApp();
 
-  function handleChangeWorkspace() {
+  function handleChangeWorkspace(): boolean {
     if (batchRunning) {
       const confirmed = window.confirm(
         "A bulk parse is still running. Change workspace and cancel the remaining work?",
       );
-      if (!confirmed) return;
+      if (!confirmed) return false;
       cancelBatch();
     }
     resetBatchState();
@@ -29,6 +29,7 @@ export function App() {
     setImageFiles([]);
     setImageSummaries([]);
     setCurrentIndex(null);
+    return true;
   }
 
   if (!workspaceFolder) {
