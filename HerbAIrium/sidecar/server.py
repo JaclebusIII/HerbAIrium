@@ -29,7 +29,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from PIL import Image as PILImage
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from models.configuration import Configuration
 from models.metadata import Metadata
@@ -70,6 +70,29 @@ def _image_path(cfg: Configuration, index: int) -> str:
     return cfg.image_files[index]
 
 
+def _image_summaries(cfg: Configuration) -> list[dict]:
+    summaries = []
+    for index, path in enumerate(cfg.image_files):
+        try:
+            metadata = Metadata(image_path=path)
+            ocr_complete = bool(metadata.ocr_result)
+            parse_complete = bool(metadata.ai_result)
+            status_error = None
+        except (OSError, json.JSONDecodeError, ValidationError) as exc:
+            ocr_complete = False
+            parse_complete = False
+            status_error = str(exc)
+        summaries.append({
+            "index": index,
+            "path": path,
+            "filename": Path(path).name,
+            "ocr_complete": ocr_complete,
+            "parse_complete": parse_complete,
+            "status_error": status_error,
+        })
+    return summaries
+
+
 class WorkspaceOpenRequest(BaseModel):
     folder_path: str
 
@@ -105,6 +128,7 @@ def workspace_open(req: WorkspaceOpenRequest):
         "folder_path": str(folder),
         "image_count": len(_cfg.image_files),
         "image_files": _cfg.image_files,
+        "images": _image_summaries(_cfg),
         "config": _cfg.model_dump(),
     }
 
@@ -127,7 +151,11 @@ def save_config(req: ConfigSaveRequest):
 @app.get("/images")
 def get_images():
     cfg = _require_workspace()
-    return {"image_files": cfg.image_files, "count": len(cfg.image_files)}
+    return {
+        "image_files": cfg.image_files,
+        "images": _image_summaries(cfg),
+        "count": len(cfg.image_files),
+    }
 
 
 def _thumbnail_data_uri(image_path: str, size: int = 256) -> str:

@@ -50,10 +50,10 @@ class Configuration(BaseSettings):
         configuration_path = os.path.join(workspace_folder, ".herbairium_configuration.json")
         
         # Scan for image files (case-insensitive)
-        image_files = [
+        image_files = sorted([
             os.path.join(workspace_folder, f) for f in os.listdir(workspace_folder) 
             if os.path.isfile(os.path.join(workspace_folder, f)) and f.lower().endswith(IMAGE_EXTENSIONS)
-        ]
+        ], key=lambda path: os.path.basename(path).lower())
         
         # Load from JSON if it exists
         if os.path.exists(configuration_path):

@@ -4,7 +4,7 @@ import { useApp } from "../context/AppContext";
 import "../types";
 
 export function WorkspaceView() {
-  const { setWorkspaceFolder, setConfig, setImageFiles, setCurrentIndex } = useApp();
+  const { setWorkspaceFolder, setConfig, setImageFiles, setImageSummaries, setCurrentIndex } = useApp();
   const [pathInput, setPathInput] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,7 +25,8 @@ export function WorkspaceView() {
       setWorkspaceFolder(result.folder_path);
       setConfig(result.config);
       setImageFiles(result.image_files);
-      setCurrentIndex(0);
+      setImageSummaries(result.images);
+      setCurrentIndex(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

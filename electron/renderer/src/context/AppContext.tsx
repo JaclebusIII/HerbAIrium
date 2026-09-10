@@ -1,15 +1,17 @@
 import React, { createContext, useContext, useState } from "react";
-import type { Configuration } from "../types";
+import type { Configuration, ImageSummary } from "../types";
 
 interface AppContextValue {
   workspaceFolder: string | null;
-  setWorkspaceFolder: (folder: string | null) => void;
+  setWorkspaceFolder: React.Dispatch<React.SetStateAction<string | null>>;
   config: Configuration | null;
-  setConfig: (config: Configuration | null) => void;
+  setConfig: React.Dispatch<React.SetStateAction<Configuration | null>>;
   imageFiles: string[];
-  setImageFiles: (files: string[]) => void;
-  currentIndex: number;
-  setCurrentIndex: (index: number) => void;
+  setImageFiles: React.Dispatch<React.SetStateAction<string[]>>;
+  imageSummaries: ImageSummary[];
+  setImageSummaries: React.Dispatch<React.SetStateAction<ImageSummary[]>>;
+  currentIndex: number | null;
+  setCurrentIndex: React.Dispatch<React.SetStateAction<number | null>>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -18,7 +20,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [workspaceFolder, setWorkspaceFolder] = useState<string | null>(null);
   const [config, setConfig] = useState<Configuration | null>(null);
   const [imageFiles, setImageFiles] = useState<string[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [imageSummaries, setImageSummaries] = useState<ImageSummary[]>([]);
+  const [currentIndex, setCurrentIndex] = useState<number | null>(null);
 
   return (
     <AppContext.Provider
@@ -29,6 +32,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setConfig,
         imageFiles,
         setImageFiles,
+        imageSummaries,
+        setImageSummaries,
         currentIndex,
         setCurrentIndex,
       }}

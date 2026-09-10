@@ -1,6 +1,7 @@
 import type {
   BatchProgressEvent,
   Configuration,
+  ImagesResponse,
   Metadata,
   ThumbnailResponse,
   WorkspaceOpenResponse,
@@ -41,7 +42,7 @@ export function saveConfig(config: Partial<Configuration>): Promise<{ saved: boo
   });
 }
 
-export function getImages(): Promise<{ image_files: string[]; count: number }> {
+export function getImages(): Promise<ImagesResponse> {
   return request("/images");
 }
 

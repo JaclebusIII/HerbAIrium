@@ -10,7 +10,7 @@ interface Summary {
 }
 
 export function OverviewTab() {
-  const { imageFiles, config } = useApp();
+  const { imageFiles, setImageSummaries, config } = useApp();
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusLine, setStatusLine] = useState("");
@@ -45,11 +45,25 @@ export function OverviewTab() {
           ocrTotal = event.total ?? ocrTotal;
           setProgress(ocrDone / (ocrTotal * 2));
           setStatusLine(`OCR ${ocrDone}/${ocrTotal}: ${event.filename ?? ""}`);
+          if (event.status === "ok" && event.filename) {
+            setImageSummaries((images) => images.map((image) => (
+              image.filename === event.filename
+                ? { ...image, ocr_complete: true, status_error: null }
+                : image
+            )));
+          }
         } else if (event.stage === "llm") {
           llmDone = event.current ?? llmDone;
           llmTotal = event.total ?? llmTotal;
           setProgress(0.5 + (llmTotal > 0 ? llmDone / (llmTotal * 2) : 0));
           setStatusLine(`LLM ${llmDone}/${llmTotal}: ${event.filename ?? ""}`);
+          if (event.status === "ok" && event.filename) {
+            setImageSummaries((images) => images.map((image) => (
+              image.filename === event.filename
+                ? { ...image, ocr_complete: true, parse_complete: true, status_error: null }
+                : image
+            )));
+          }
         }
       }
     } catch (err) {
