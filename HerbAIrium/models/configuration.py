@@ -27,7 +27,7 @@ class Configuration(BaseSettings):
     llm_parse_prompt: str = (
         "The following is a transcription of a herbarium specimen image. "
         "Please parse the transcription and extract the following information into a JSON format:\n\n"
-        "recordNumber: This is the random number on the label, often closely located to the collector's name. Should be an int\n"
+        "recordNumber: The alphanumeric identifier assigned by the collector, often closely located to the collector's name. Should be a string\n"
         "family: Always ends with '-aceae'. Should be a string\n"
         "scientificName: Should include both genus and species names. The first letter of the genus name should always be capitalized. The species name should always be all lowercase. Should be a string\n"
         "scientificNameAuthorship: This is the name or abbreviation listed after the species name. Should be a string\n"
@@ -40,7 +40,7 @@ class Configuration(BaseSettings):
         "decimalLongitude: Only include if it is on the label. Leave blank if not on label. Convert to decimal degree. Should be a float\n"
         "recordedBy: First person's name listed. Should be a string\n"
         "associatedCollectors: If there is more than one collector, list all subsequent collectors here. Should be a list of strings\n"
-        "minimumElevationInMeters: Only include if it is on the label. If listed as feet, convert to Meters. Should be an int\n\n"
+        "minimumElevationInMeters: Only include if it is on the label. If listed as feet, convert to meters. Should be a number\n\n"
         "Return the information in a JSON format with the above field names. "
         "Leave fields blank (empty string or null) if the information is not found in the transcription."
         "Do not surround json data in 'json``` <blah> ``` ' just start response with '{'"

@@ -5,12 +5,13 @@ from pathlib import Path
 from PIL import Image
 from typing import Optional
 from pydantic_settings import BaseSettings
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, field_validator
 
 
 class Metadata(BaseSettings):
     model_config = ConfigDict(
-        extra='allow'
+        extra='allow',
+        validate_assignment=True,
     )
 
     image_path: str
@@ -18,7 +19,7 @@ class Metadata(BaseSettings):
     ai_result: Optional[str] = None
 
     catalogNumber: Optional[str] = None
-    recordNumber: Optional[int] = None
+    recordNumber: Optional[str | int] = None
     family: Optional[str] = None
     scientificName: Optional[str] = None
     scientificNameAuthorship: Optional[str] = None
@@ -31,8 +32,19 @@ class Metadata(BaseSettings):
     decimalLongitude: Optional[float] = None
     recordedBy: Optional[str] = None
     associatedCollectors: Optional[list[str]] = None
-    minimumElevationInMeters: Optional[int] = None
+    minimumElevationInMeters: Optional[float] = None
 
+    @field_validator(
+        "decimalLatitude",
+        "decimalLongitude",
+        "minimumElevationInMeters",
+        mode="before",
+    )
+    @classmethod
+    def blank_numeric_value_as_none(cls, value):
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     def __init__(self, image_path: str, **kwargs):
         image_path_obj = Path(image_path)

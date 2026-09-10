@@ -62,6 +62,19 @@ export function runParse(index: number): Promise<Metadata> {
   return request(`/images/${index}/parse`, { method: "POST" });
 }
 
+export async function exportDarwinCore(): Promise<Blob> {
+  const res = await fetch(`${baseUrl}/export/darwin-core`);
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(detail.detail ?? res.statusText);
+  }
+  return res.blob();
+}
+
+export function clearWorkspaceResults(): Promise<{ cleared: number }> {
+  return request("/workspace/clear-results", { method: "POST" });
+}
+
 // EventSource only supports GET; the batch endpoint is POST, so we read SSE via fetch.
 export async function* batchProcessStream(signal?: AbortSignal): AsyncGenerator<BatchProgressEvent> {
   const res = await fetch(`${baseUrl}/batch/process`, { method: "POST", signal });

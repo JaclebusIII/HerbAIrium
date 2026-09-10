@@ -11,11 +11,12 @@ from __future__ import annotations
 import argparse
 import asyncio
 import base64
+import csv
 import json
 import signal
 import sys
 from collections.abc import Callable
-from io import BytesIO
+from io import BytesIO, StringIO
 from pathlib import Path
 
 # Ensure the HerbAIrium package root is on sys.path when run as a script
@@ -27,7 +28,7 @@ if str(_root) not in sys.path:
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from PIL import Image as PILImage
 from pydantic import BaseModel, ValidationError
 
@@ -55,6 +56,23 @@ if args.dev:
     )
 
 _cfg: Configuration | None = None
+
+DARWIN_CORE_FIELDS = (
+    "catalogNumber",
+    "recordNumber",
+    "family",
+    "scientificName",
+    "scientificNameAuthorship",
+    "eventDate",
+    "country",
+    "stateProvince",
+    "county",
+    "locality",
+    "decimalLatitude",
+    "decimalLongitude",
+    "recordedBy",
+    "minimumElevationInMeters",
+)
 
 
 def _require_workspace() -> Configuration:
@@ -91,6 +109,35 @@ def _image_summaries(cfg: Configuration) -> list[dict]:
             "status_error": status_error,
         })
     return summaries
+
+
+def _darwin_core_csv(cfg: Configuration) -> str:
+    output = StringIO(newline="")
+    writer = csv.DictWriter(output, fieldnames=DARWIN_CORE_FIELDS)
+    writer.writeheader()
+
+    for path in cfg.image_files:
+        metadata = Metadata(image_path=path)
+        collectors = [metadata.recordedBy, *(metadata.associatedCollectors or [])]
+        row = {
+            "catalogNumber": metadata.catalogNumber,
+            "recordNumber": metadata.recordNumber,
+            "family": metadata.family,
+            "scientificName": metadata.scientificName,
+            "scientificNameAuthorship": metadata.scientificNameAuthorship,
+            "eventDate": metadata.eventDate,
+            "country": metadata.country,
+            "stateProvince": metadata.stateProvince,
+            "county": metadata.County,
+            "locality": metadata.Locality,
+            "decimalLatitude": metadata.decimalLatitude,
+            "decimalLongitude": metadata.decimalLongitude,
+            "recordedBy": "|".join(collector for collector in collectors if collector),
+            "minimumElevationInMeters": metadata.minimumElevationInMeters,
+        }
+        writer.writerow({key: "" if value is None else value for key, value in row.items()})
+
+    return output.getvalue()
 
 
 class WorkspaceOpenRequest(BaseModel):
@@ -156,6 +203,42 @@ def get_images():
         "images": _image_summaries(cfg),
         "count": len(cfg.image_files),
     }
+
+
+@app.get("/export/darwin-core")
+def export_darwin_core():
+    cfg = _require_workspace()
+    try:
+        csv_content = _darwin_core_csv(cfg)
+    except (OSError, json.JSONDecodeError, ValidationError) as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to export workspace metadata: {exc}")
+    return Response(
+        content=csv_content.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="darwin-core.csv"'},
+    )
+
+
+@app.post("/workspace/clear-results")
+def clear_workspace_results():
+    cfg = _require_workspace()
+    cleared = 0
+    failures = []
+
+    for image_path in cfg.image_files:
+        metadata_path = Path(image_path).with_suffix(".json")
+        try:
+            metadata_path.unlink(missing_ok=True)
+            cleared += 1
+        except OSError as exc:
+            failures.append(f"{metadata_path.name}: {exc}")
+
+    if failures:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to clear {len(failures)} metadata files: {'; '.join(failures)}",
+        )
+    return {"cleared": cleared}
 
 
 def _thumbnail_data_uri(image_path: str, size: int = 256) -> str:

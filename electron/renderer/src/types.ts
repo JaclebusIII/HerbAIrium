@@ -17,7 +17,7 @@ export interface Metadata {
   ocr_result: string | null;
   ai_result: string | null;
   catalogNumber: string | null;
-  recordNumber: number | null;
+  recordNumber: string | number | null;
   family: string | null;
   scientificName: string | null;
   scientificNameAuthorship: string | null;
