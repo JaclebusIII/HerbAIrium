@@ -1,9 +1,24 @@
 import { useEffect, useRef, useState } from "react";
-import { getMetadata, getThumbnail, runOcr, runParse } from "../api";
+import { getImage, getMetadata, getThumbnail, runOcr, runParse } from "../api";
 import { MetadataPanel } from "../components/MetadataPanel";
 import { WorkspaceExplorer } from "../components/WorkspaceExplorer";
 import { useApp } from "../context/AppContext";
 import type { Metadata } from "../types";
+
+const INITIAL_ZOOM = 2;
+const MIN_ZOOM = 1.5;
+const MAX_ZOOM = 5;
+const ZOOM_STEP = 0.5;
+const LENS_SIZE = 320;
+
+interface MagnifierPosition {
+  left: number;
+  top: number;
+  imageX: number;
+  imageY: number;
+  imageWidth: number;
+  imageHeight: number;
+}
 
 export function ImageViewerTab() {
   const {
@@ -17,11 +32,16 @@ export function ImageViewerTab() {
   const total = imageFiles.length;
 
   const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
+  const [detailImageUri, setDetailImageUri] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<Metadata | null>(null);
   const [busy, setBusy] = useState<"ocr" | "parse" | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(INITIAL_ZOOM);
+  const [imageHovered, setImageHovered] = useState(false);
+  const [magnifierPosition, setMagnifierPosition] = useState<MagnifierPosition | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadRequestId = useRef(0);
+  const imageContainerRef = useRef<HTMLDivElement | null>(null);
   const currentIndexRef = useRef(currentIndex);
   currentIndexRef.current = currentIndex;
 
@@ -36,25 +56,89 @@ export function ImageViewerTab() {
   useEffect(() => {
     if (currentIndex === null) return;
     const requestId = ++loadRequestId.current;
+    const controller = new AbortController();
+    let objectUrl: string | null = null;
     setThumbnailUri(null);
+    setDetailImageUri(null);
     setMetadata(null);
+    setZoom(INITIAL_ZOOM);
+    setImageHovered(false);
+    setMagnifierPosition(null);
 
-    Promise.all([getThumbnail(currentIndex), getMetadata(currentIndex)])
-      .then(([thumb, meta]) => {
+    Promise.all([
+      getThumbnail(currentIndex),
+      getMetadata(currentIndex, controller.signal),
+    ])
+      .then(([thumbnail, meta]) => {
         if (loadRequestId.current !== requestId) return;
-        setThumbnailUri(thumb.data_uri);
+        setThumbnailUri(thumbnail.data_uri);
         setMetadata(meta);
       })
       .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         if (loadRequestId.current === requestId) {
           showToast(err instanceof Error ? err.message : String(err));
         }
       });
 
+    getImage(currentIndex, controller.signal)
+      .then((image) => {
+        objectUrl = URL.createObjectURL(image);
+        if (loadRequestId.current !== requestId) {
+          URL.revokeObjectURL(objectUrl);
+          return;
+        }
+        setDetailImageUri(objectUrl);
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (loadRequestId.current === requestId) {
+          showToast(`Detailed image unavailable: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      });
+
     return () => {
+      controller.abort();
       loadRequestId.current += 1;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [currentIndex]);
+
+  useEffect(() => {
+    if (!imageHovered) return;
+
+    function handleZoomKey(event: KeyboardEvent) {
+      if (event.key === "+" || event.key === "=") {
+        event.preventDefault();
+        setZoom((value) => Math.min(MAX_ZOOM, value + ZOOM_STEP));
+      } else if (event.key === "-" || event.key === "_") {
+        event.preventDefault();
+        setZoom((value) => Math.max(MIN_ZOOM, value - ZOOM_STEP));
+      }
+    }
+
+    window.addEventListener("keydown", handleZoomKey);
+    return () => window.removeEventListener("keydown", handleZoomKey);
+  }, [imageHovered]);
+
+  function handleImageMouseMove(event: React.MouseEvent<HTMLImageElement>) {
+    const container = imageContainerRef.current;
+    if (!container) return;
+
+    const imageRect = event.currentTarget.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const imageX = event.clientX - imageRect.left;
+    const imageY = event.clientY - imageRect.top;
+
+    setMagnifierPosition({
+      left: imageRect.left - containerRect.left + imageX - LENS_SIZE / 2,
+      top: imageRect.top - containerRect.top + imageY - LENS_SIZE / 2,
+      imageX,
+      imageY,
+      imageWidth: imageRect.width,
+      imageHeight: imageRect.height,
+    });
+  }
 
   function updateSummary(index: number, meta: Metadata) {
     setImageSummaries((images) => images.map((image) => (
@@ -124,6 +208,7 @@ export function ImageViewerTab() {
   }
 
   const filename = imageFiles[currentIndex]?.split(/[\\/]/).pop() ?? "";
+  const imageUri = detailImageUri ?? thumbnailUri;
 
   return (
     <div className="p-4 overflow-y-auto h-full relative">
@@ -148,14 +233,47 @@ export function ImageViewerTab() {
 
       <div className="flex gap-6">
         {/* Image */}
-        <div className="shrink-0">
-          <div className="w-[400px] h-[400px] bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-            {thumbnailUri ? (
-              <img src={thumbnailUri} alt={filename} className="max-w-full max-h-full object-contain" />
+        <div className="w-[48%] min-w-[420px] max-w-[700px] shrink-0">
+          <div
+            ref={imageContainerRef}
+            className="relative w-full h-[min(65vh,700px)] min-h-[500px] bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden"
+          >
+            {imageUri ? (
+              <>
+                <img
+                  src={imageUri}
+                  alt={filename}
+                  className="block max-w-full max-h-full object-contain cursor-zoom-in"
+                  onMouseEnter={() => setImageHovered(true)}
+                  onMouseMove={handleImageMouseMove}
+                  onMouseLeave={() => {
+                    setImageHovered(false);
+                    setMagnifierPosition(null);
+                  }}
+                />
+                {imageHovered && magnifierPosition && (
+                  <div
+                    className="absolute rounded-full border-2 border-white shadow-xl pointer-events-none"
+                    style={{
+                      width: LENS_SIZE,
+                      height: LENS_SIZE,
+                      left: magnifierPosition.left,
+                      top: magnifierPosition.top,
+                      backgroundImage: `url("${imageUri}")`,
+                      backgroundRepeat: "no-repeat",
+                      backgroundSize: `${magnifierPosition.imageWidth * zoom}px ${magnifierPosition.imageHeight * zoom}px`,
+                      backgroundPosition: `${LENS_SIZE / 2 - magnifierPosition.imageX * zoom}px ${LENS_SIZE / 2 - magnifierPosition.imageY * zoom}px`,
+                    }}
+                  />
+                )}
+              </>
             ) : (
               <span className="text-gray-400 text-sm">Loading…</span>
             )}
           </div>
+          <p className="mt-2 text-xs text-gray-500">
+            Hover over the image to magnify. While hovering, press + or - to adjust zoom ({zoom.toFixed(1)}x).
+          </p>
           <div className="flex gap-2 mt-3">
             <ActionButton onClick={handleOcr} disabled={busy !== null} loading={busy === "ocr"}>
               Run OCR
