@@ -9,7 +9,7 @@ const INITIAL_ZOOM = 2;
 const MIN_ZOOM = 1.5;
 const MAX_ZOOM = 5;
 const ZOOM_STEP = 0.5;
-const LENS_SIZE = 220;
+const LENS_SIZE = 320;
 
 interface MagnifierPosition {
   left: number;
