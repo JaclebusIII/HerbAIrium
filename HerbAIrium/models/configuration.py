@@ -73,7 +73,7 @@ class Configuration(BaseSettings):
     def save(self) -> bool:
         try:
             with open(self.configuration_path, 'w') as f:
-                json.dump(self.model_dump(), f)
+                json.dump(self.model_dump(), f, indent=2)
             return True
         except Exception as e:
             return False
