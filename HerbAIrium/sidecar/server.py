@@ -469,10 +469,12 @@ async def _run_realtime_batch_stream(cfg: Configuration):
                     "total_operations": total_operations,
                     "filename": Path(path).name,
                     "status": "running",
+                    "elapsed_seconds": perf_counter() - started_at,
                     "message": (
                         f"Running {'OCR' if stage == 'ocr' else 'LLM parse'}: "
                         f"{Path(path).name} "
-                        f"({stage_done[stage]}/{stage_totals[stage]} complete)"
+                        f"({stage_done[stage]}/{stage_totals[stage]} complete; "
+                        f"{int(perf_counter() - started_at)}s)"
                     ),
                 })
 
