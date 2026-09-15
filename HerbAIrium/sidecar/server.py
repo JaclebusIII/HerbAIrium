@@ -63,7 +63,7 @@ if args.dev:
 
 _cfg: Configuration | None = None
 _batch_lock = asyncio.Lock()
-BATCH_POLL_SECONDS = 5
+BATCH_POLL_SECONDS = 2
 BATCH_CANCEL_POLL_SECONDS = 0.5
 BATCH_CANCEL_POLL_ATTEMPTS = 20
 MAX_BATCH_FILE_BYTES = 190 * 1024 * 1024
@@ -644,7 +644,16 @@ async def _run_provider_batch_stream(cfg: Configuration):
     }
     total_operations = stage_totals["ocr"] + stage_totals["llm"]
     completed_operations = 0
+    reported_operations = 0
     stage_elapsed = {"ocr": 0.0, "llm": 0.0}
+
+    def progress_operations(remote_finished: int = 0) -> int:
+        nonlocal reported_operations
+        reported_operations = max(
+            reported_operations,
+            completed_operations + remote_finished,
+        )
+        return reported_operations
 
     ocr_client = DeepinfraClient(
         base_url=cfg.llm_base_url,
@@ -841,7 +850,7 @@ async def _run_provider_batch_stream(cfg: Configuration):
                 "stage": stage,
                 "current": 0,
                 "total": len(paths),
-                "completed_operations": completed_operations,
+                "completed_operations": progress_operations(),
                 "total_operations": total_operations,
                 "status": "running",
                 "provider_status": "preparing",
@@ -867,7 +876,7 @@ async def _run_provider_batch_stream(cfg: Configuration):
                         "stage": stage,
                         "current": stage_completed,
                         "total": len(paths),
-                        "completed_operations": completed_operations,
+                        "completed_operations": progress_operations(),
                         "total_operations": total_operations,
                         "status": "running",
                         "provider_status": "uploading",
@@ -894,7 +903,9 @@ async def _run_provider_batch_stream(cfg: Configuration):
                             "stage": stage,
                             "current": stage_completed + provider_finished,
                             "total": len(paths),
-                            "completed_operations": completed_operations,
+                            "completed_operations": progress_operations(
+                                provider_finished
+                            ),
                             "total_operations": total_operations,
                             "status": "running",
                             "provider_status": batch.get("status"),
@@ -964,7 +975,7 @@ async def _run_provider_batch_stream(cfg: Configuration):
                             "stage": stage,
                             "current": stage_completed,
                             "total": len(paths),
-                            "completed_operations": completed_operations,
+                            "completed_operations": progress_operations(),
                             "total_operations": total_operations,
                             "filename": Path(path).name,
                             "status": status,
@@ -986,7 +997,7 @@ async def _run_provider_batch_stream(cfg: Configuration):
                             "stage": stage,
                             "current": stage_completed,
                             "total": len(paths),
-                            "completed_operations": completed_operations,
+                            "completed_operations": progress_operations(),
                             "total_operations": total_operations,
                             "filename": Path(path).name,
                             "status": "error",
@@ -1013,7 +1024,7 @@ async def _run_provider_batch_stream(cfg: Configuration):
                     "stage": stage,
                     "current": completed_operations,
                     "total": len(paths),
-                    "completed_operations": completed_operations,
+                    "completed_operations": progress_operations(),
                     "total_operations": total_operations,
                     "filename": Path(path).name,
                     "status": "error",
@@ -1043,7 +1054,7 @@ async def _run_provider_batch_stream(cfg: Configuration):
                     "stage": "llm",
                     "current": counts["llm_blocked"],
                     "total": stage_totals["llm"],
-                    "completed_operations": completed_operations,
+                    "completed_operations": progress_operations(),
                     "total_operations": total_operations,
                     "filename": Path(path).name,
                     "status": "skipped",

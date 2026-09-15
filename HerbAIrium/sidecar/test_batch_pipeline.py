@@ -53,11 +53,13 @@ class FakeBatchClient:
         *,
         fail_ocr_ids=None,
         stay_running=False,
+        reported_completed=0,
         create_delay=0,
         create_started=None,
     ):
         self.fail_ocr_ids = set(fail_ocr_ids or [])
         self.stay_running = stay_running
+        self.reported_completed = reported_completed
         self.create_delay = create_delay
         self.create_started = create_started
         self.uploads = {}
@@ -90,7 +92,11 @@ class FakeBatchClient:
             "input_file_id": input_file_id,
             "output_file_id": f"output-{input_file_id}",
             "request_counts": {
-                "completed": 0 if self.stay_running else len(self.uploads[input_file_id]),
+                "completed": (
+                    self.reported_completed
+                    if self.stay_running
+                    else len(self.uploads[input_file_id])
+                ),
                 "total": len(self.uploads[input_file_id]),
             },
         }
@@ -363,7 +369,10 @@ class BatchPipelineTests(unittest.IsolatedAsyncioTestCase):
             pending = str(Path(workspace, "pending.jpg"))
             Path(pending).touch()
             configuration = Configuration(workspace_folder=workspace)
-            fake_batch = FakeBatchClient(stay_running=True)
+            fake_batch = FakeBatchClient(
+                stay_running=True,
+                reported_completed=1,
+            )
 
             with (
                 patch.object(
@@ -383,6 +392,7 @@ class BatchPipelineTests(unittest.IsolatedAsyncioTestCase):
                     )
                 self.assertEqual(event["status"], "running")
                 self.assertEqual(event["provider_status"], "in_progress")
+                self.assertEqual(event["completed_operations"], 1)
                 self.assertIn("waiting", event["message"])
                 await stream.aclose()
 
