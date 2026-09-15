@@ -26,10 +26,12 @@ const editableKeys = [
   "olm_model",
   "olm_temperature",
   "olm_max_tokens",
+  "ocr_concurrency",
   "olm_prompt",
   "llm_parse_model",
   "llm_parse_temperature",
   "llm_parse_max_tokens",
+  "parse_concurrency",
   "llm_parse_prompt",
 ] as const satisfies readonly (keyof Configuration)[];
 
@@ -146,6 +148,21 @@ export const ConfigTab = forwardRef<ConfigTabHandle, ConfigTabProps>(function Co
           />
         </Field>
 
+        <Field label="Concurrent OCR requests (fast mode)">
+          <input
+            className={inputCls}
+            type="text"
+            inputMode="numeric"
+            value={form.ocr_concurrency}
+            onChange={(e) => {
+              const value = Number(e.target.value);
+              if (Number.isInteger(value) && value >= 1 && value <= 200) {
+                update("ocr_concurrency", value);
+              }
+            }}
+          />
+        </Field>
+
         <Field label="OCR prompt">
           <textarea
             className={`${inputCls} h-28`}
@@ -183,6 +200,21 @@ export const ConfigTab = forwardRef<ConfigTabHandle, ConfigTabProps>(function Co
             type="number"
             value={form.llm_parse_max_tokens}
             onChange={(e) => update("llm_parse_max_tokens", parseInt(e.target.value, 10))}
+          />
+        </Field>
+
+        <Field label="Concurrent parse requests (fast mode)">
+          <input
+            className={inputCls}
+            type="text"
+            inputMode="numeric"
+            value={form.parse_concurrency}
+            onChange={(e) => {
+              const value = Number(e.target.value);
+              if (Number.isInteger(value) && value >= 1 && value <= 200) {
+                update("parse_concurrency", value);
+              }
+            }}
           />
         </Field>
 

@@ -8,7 +8,8 @@ IMAGE_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.tif', '.tiff')  # Define your ext
 
 class Configuration(BaseSettings):
     model_config = ConfigDict(
-        extra='allow'
+        extra='allow',
+        validate_assignment=True,
     )
     
     # Required field set during initialization
@@ -20,10 +21,12 @@ class Configuration(BaseSettings):
     olm_model: str = "allenai/olmOCR-7B-0825"
     olm_temperature: float = 0.7
     olm_max_tokens: int = 4096
+    ocr_concurrency: int = Field(default=5, ge=1, le=200)
     olm_prompt: str = "Please extract all text from this herbarium specimen image."
     llm_parse_model: str = "openai/gpt-oss-120b"
     llm_parse_temperature: float = 0.7
     llm_parse_max_tokens: int = 4096
+    parse_concurrency: int = Field(default=5, ge=1, le=200)
     llm_parse_prompt: str = (
         "The following is a transcription of a herbarium specimen image. "
         "Please parse the transcription and extract the following information into a JSON format:\n\n"

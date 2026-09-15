@@ -14,9 +14,11 @@ export function OverviewTab() {
     setCurrentIndex,
     batchRunning,
     batchProgress,
+    batchWaiting,
     batchStatusLine,
     batchSummary,
     startBatch,
+    cancelBatch,
     resetBatchState,
   } = useApp();
   const transcribedCount = imageSummaries.filter((image) => image.ocr_complete).length;
@@ -79,28 +81,64 @@ export function OverviewTab() {
         <Metric label="Parsed" value={parsedCount} />
       </div>
 
+      <h3 className="font-semibold text-gray-900 mb-2">Process images</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="border rounded-lg p-4 flex flex-col items-start">
+          <h4 className="font-medium text-gray-900">Fast processing</h4>
+          <p className="text-sm text-gray-600 mt-1 mb-4 flex-1">
+            Sends concurrent real-time requests and starts parsing each image as
+            soon as its OCR finishes. Best when turnaround time matters.
+          </p>
+          <button
+            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+            onClick={() => void startBatch("realtime")}
+            disabled={batchRunning || imageFiles.length === 0}
+          >
+            Parse all images (fast)
+          </button>
+        </div>
+
+        <div className="border rounded-lg p-4 flex flex-col items-start">
+          <h4 className="font-medium text-gray-900">Economy batch</h4>
+          <p className="text-sm text-gray-600 mt-1 mb-4 flex-1">
+            Uses DeepInfra&apos;s queued Batch API for 20% lower inference
+            pricing. Results arrive in groups and may take minutes or hours.
+          </p>
+          <button
+            className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50"
+            onClick={() => void startBatch("provider")}
+            disabled={batchRunning || imageFiles.length === 0}
+          >
+            Parse all images (economy)
+          </button>
+        </div>
+      </div>
+
+      {batchRunning && (
+        <button
+          className="mt-3 px-4 py-2 bg-gray-600 text-white rounded-lg text-sm font-medium hover:bg-gray-700"
+          onClick={cancelBatch}
+        >
+          Cancel processing
+        </button>
+      )}
+
+      <h3 className="font-semibold text-gray-900 mt-6 mb-2">Workspace actions</h3>
       <div className="flex flex-wrap gap-3">
-        <button
-          className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
-          onClick={() => void startBatch()}
-          disabled={batchRunning || imageFiles.length === 0}
-        >
-          {batchRunning ? "Processing..." : "Parse all images (OCR + LLM)"}
-        </button>
-        <button
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-          onClick={() => void downloadDarwinCore()}
-          disabled={batchRunning || exporting || clearing || imageFiles.length === 0}
-        >
-          {exporting ? "Exporting..." : "Export Darwin Core CSV"}
-        </button>
-        <button
-          className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
-          onClick={() => void clearAllResults()}
-          disabled={batchRunning || clearing || exporting || imageFiles.length === 0}
-        >
-          {clearing ? "Clearing..." : "Clear all OCR and parse data"}
-        </button>
+          <button
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            onClick={() => void downloadDarwinCore()}
+            disabled={batchRunning || exporting || clearing || imageFiles.length === 0}
+          >
+            {exporting ? "Exporting..." : "Export Darwin Core CSV"}
+          </button>
+          <button
+            className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+            onClick={() => void clearAllResults()}
+            disabled={batchRunning || clearing || exporting || imageFiles.length === 0}
+          >
+            {clearing ? "Clearing..." : "Clear all OCR and parse data"}
+          </button>
       </div>
 
       {exportStatus && (
@@ -115,11 +153,18 @@ export function OverviewTab() {
         <div className="mt-4">
           <div className="relative w-full bg-gray-200 rounded-full h-5 overflow-hidden">
             <div
-              className="bg-green-600 h-full rounded-full transition-all"
-              style={{ width: `${Math.round(batchProgress * 100)}%` }}
+              className={`bg-green-600 h-full rounded-full ${
+                batchWaiting ? "animate-pulse" : "transition-all"
+              }`}
+              style={{
+                width: batchWaiting
+                  ? "100%"
+                  : `${Math.round(batchProgress * 100)}%`,
+                opacity: batchWaiting ? 0.35 : 1,
+              }}
             />
             <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-gray-900">
-              {Math.round(batchProgress * 100)}%
+              {batchWaiting ? "Waiting for DeepInfra" : `${Math.round(batchProgress * 100)}%`}
             </span>
           </div>
           <p className="text-sm text-gray-600 mt-1">{batchStatusLine}</p>
@@ -133,10 +178,21 @@ export function OverviewTab() {
       {batchSummary && (
         <div className="mt-4 bg-gray-50 border rounded-lg p-4 text-sm space-y-1">
           <p>
-            <span className="font-medium">OCR:</span> {batchSummary.ocr_ok} ok, {batchSummary.ocr_fail} failed
+            <span className="font-medium">OCR:</span> {batchSummary.ocr_ok} ok, {batchSummary.ocr_fail} failed, {batchSummary.ocr_skipped} skipped
           </p>
           <p>
-            <span className="font-medium">LLM:</span> {batchSummary.llm_ok} ok, {batchSummary.llm_fail} failed
+            <span className="font-medium">LLM:</span> {batchSummary.llm_ok} ok, {batchSummary.llm_fail} failed, {batchSummary.llm_skipped} already complete, {batchSummary.llm_blocked} blocked
+          </p>
+          {batchSummary.metadata_fail > 0 && (
+            <p>
+              <span className="font-medium">Metadata:</span> {batchSummary.metadata_fail} unreadable
+            </p>
+          )}
+          <p>
+            <span className="font-medium">Elapsed:</span> {batchSummary.elapsed_seconds.toFixed(1)}s
+          </p>
+          <p>
+            <span className="font-medium">Throughput:</span> OCR {batchSummary.ocr_throughput.toFixed(2)}/s, parse {batchSummary.llm_throughput.toFixed(2)}/s
           </p>
         </div>
       )}

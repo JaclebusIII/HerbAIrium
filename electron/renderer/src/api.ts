@@ -85,8 +85,14 @@ export function clearWorkspaceResults(): Promise<{ cleared: number }> {
 }
 
 // EventSource only supports GET; the batch endpoint is POST, so we read SSE via fetch.
-export async function* batchProcessStream(signal?: AbortSignal): AsyncGenerator<BatchProgressEvent> {
-  const res = await fetch(`${baseUrl}/batch/process`, { method: "POST", signal });
+export async function* batchProcessStream(
+  mode: "realtime" | "provider",
+  signal?: AbortSignal,
+): AsyncGenerator<BatchProgressEvent> {
+  const res = await fetch(
+    `${baseUrl}/batch/process?mode=${encodeURIComponent(mode)}`,
+    { method: "POST", signal },
+  );
   if (!res.ok || !res.body) throw new Error("Batch process failed to start");
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
