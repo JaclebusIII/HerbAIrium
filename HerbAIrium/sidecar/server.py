@@ -471,7 +471,8 @@ async def _run_realtime_batch_stream(cfg: Configuration):
                     "status": "running",
                     "message": (
                         f"Running {'OCR' if stage == 'ocr' else 'LLM parse'}: "
-                        f"{Path(path).name}"
+                        f"{Path(path).name} "
+                        f"({stage_done[stage]}/{stage_totals[stage]} complete)"
                     ),
                 })
 

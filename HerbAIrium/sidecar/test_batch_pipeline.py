@@ -251,6 +251,7 @@ class BatchPipelineTests(unittest.IsolatedAsyncioTestCase):
                     (await anext(stream)).removeprefix("data: ").strip()
                 )
                 self.assertEqual(event["status"], "running")
+                self.assertIn("(0/1 complete)", event["message"])
                 await asyncio.wait_for(request_started.wait(), timeout=0.5)
 
                 started_at = time.perf_counter()

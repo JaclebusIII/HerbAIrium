@@ -158,7 +158,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         const activeFilename = activeFiles[stage][activeFiles[stage].length - 1];
         setBatchStatusLine(activeFilename
-          ? `Running ${stageLabel}: ${activeFilename}`
+          ? `Running ${stageLabel}: ${activeFilename} (${current}/${total} complete)`
           : `${stageLabel}: ${current}/${total} complete`);
       }
     } catch (err) {
