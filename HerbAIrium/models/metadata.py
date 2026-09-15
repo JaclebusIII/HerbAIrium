@@ -65,7 +65,7 @@ class Metadata(BaseSettings):
     def save(self) -> bool:
         try:
             with open(self.metadata_path, 'w') as f:
-                json.dump(self.model_dump(), f)
+                json.dump(self.model_dump(), f, indent=2)
             return True
         except Exception as e:
             return False

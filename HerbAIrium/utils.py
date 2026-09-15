@@ -35,7 +35,8 @@ def process_ocr(
             base_url=configuration.llm_base_url,
             api_key=configuration.deepinfra_api_key,
             model=configuration.olm_model,
-            prompt=configuration.olm_prompt
+            prompt=configuration.olm_prompt,
+            max_tokens=configuration.olm_max_tokens,
         )
         
         # Run inference
@@ -67,7 +68,8 @@ def llm_parse_transcription(
             base_url=configuration.llm_base_url,
             api_key=configuration.deepinfra_api_key,
             model=configuration.llm_parse_model,
-            prompt=configuration.llm_parse_prompt
+            prompt=configuration.llm_parse_prompt,
+            max_tokens=configuration.llm_parse_max_tokens,
         )
         result = client.inference(
             temperature=configuration.llm_parse_temperature,
@@ -123,9 +125,14 @@ def process_ocr_and_save_results(
     Args:
         image_path: Path to the image file to process
     """
+    save_ocr_result(image_path, process_ocr(image_path, configuration))
+
+
+def save_ocr_result(image_path: str, ocr_result: str):
     metadata = Metadata(image_path=image_path)
-    metadata.ocr_result = process_ocr(image_path, configuration)
-    metadata.save()
+    metadata.ocr_result = ocr_result
+    if not metadata.save():
+        raise OSError("Failed to save OCR metadata.")
 
 def llm_parse_transcription_and_save_results(
     image_path: str,
@@ -141,26 +148,33 @@ def llm_parse_transcription_and_save_results(
     metadata = Metadata(image_path=image_path)
     transcription = metadata.ocr_result
     if transcription is not None:
-        metadata.catalogNumber = catalog_number_from_image_path(image_path)
         llm_parse_result = llm_parse_transcription(transcription, configuration)
-        metadata.ai_result = llm_parse_result
-        if llm_parse_result is not None:
-            json_result = json_to_dict(llm_parse_result)
-            if json_result is not None:
-                metadata.recordNumber = json_result["recordNumber"]
-                metadata.family = json_result["family"]
-                metadata.scientificName = json_result["scientificName"]
-                metadata.scientificNameAuthorship = json_result["scientificNameAuthorship"]
-                metadata.eventDate = json_result["eventDate"]
-                metadata.country = json_result["country"]
-                metadata.stateProvince = json_result["stateProvince"]
-                metadata.County = json_result["County"]
-                metadata.Locality = json_result["Locality"]
-                metadata.decimalLatitude = json_result["decimalLatitude"]
-                metadata.decimalLongitude = json_result["decimalLongitude"]
-                metadata.recordedBy = json_result["recordedBy"]
-                metadata.associatedCollectors = json_result["associatedCollectors"]
-                metadata.minimumElevationInMeters = json_result["minimumElevationInMeters"]
-        metadata.save()
+        save_llm_parse_result(image_path, llm_parse_result)
     else:
         raise Exception("No OCR result found for this image.")
+
+
+def save_llm_parse_result(image_path: str, llm_parse_result: str):
+    json_result = json_to_dict(llm_parse_result)
+    if not isinstance(json_result, dict):
+        raise ValueError("LLM parsing returned invalid JSON.")
+
+    metadata = Metadata(image_path=image_path)
+    metadata.catalogNumber = catalog_number_from_image_path(image_path)
+    metadata.recordNumber = json_result["recordNumber"]
+    metadata.family = json_result["family"]
+    metadata.scientificName = json_result["scientificName"]
+    metadata.scientificNameAuthorship = json_result["scientificNameAuthorship"]
+    metadata.eventDate = json_result["eventDate"]
+    metadata.country = json_result["country"]
+    metadata.stateProvince = json_result["stateProvince"]
+    metadata.County = json_result["County"]
+    metadata.Locality = json_result["Locality"]
+    metadata.decimalLatitude = json_result["decimalLatitude"]
+    metadata.decimalLongitude = json_result["decimalLongitude"]
+    metadata.recordedBy = json_result["recordedBy"]
+    metadata.associatedCollectors = json_result["associatedCollectors"]
+    metadata.minimumElevationInMeters = json_result["minimumElevationInMeters"]
+    metadata.ai_result = llm_parse_result
+    if not metadata.save():
+        raise OSError("Failed to save parsed metadata.")

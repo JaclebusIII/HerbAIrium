@@ -5,10 +5,12 @@ export interface Configuration {
   olm_model: string;
   olm_temperature: number;
   olm_max_tokens: number;
+  ocr_concurrency: number;
   olm_prompt: string;
   llm_parse_model: string;
   llm_parse_temperature: number;
   llm_parse_max_tokens: number;
+  parse_concurrency: number;
   llm_parse_prompt: string;
 }
 
@@ -67,6 +69,7 @@ declare global {
     electronAPI: {
       getSidecarPort: () => Promise<number>;
       openFolderDialog: () => Promise<string | null>;
+      confirmUnsavedConfiguration: () => Promise<"save" | "discard" | "cancel">;
     };
   }
 }
@@ -76,17 +79,39 @@ export interface BatchProgressEvent {
   current?: number;
   total?: number;
   filename?: string;
-  status?: "running" | "ok" | "error";
+  status?: "running" | "ok" | "error" | "skipped";
   error?: string | null;
+  message?: string;
+  provider_status?: string;
+  completed_operations?: number;
+  total_operations?: number;
+  elapsed_seconds?: number;
   ocr_ok?: number;
   ocr_fail?: number;
+  ocr_skipped?: number;
   llm_ok?: number;
   llm_fail?: number;
+  llm_skipped?: number;
+  llm_blocked?: number;
+  metadata_fail?: number;
+  ocr_elapsed_seconds?: number;
+  llm_elapsed_seconds?: number;
+  ocr_throughput?: number;
+  llm_throughput?: number;
 }
 
 export interface BatchSummary {
   ocr_ok: number;
   ocr_fail: number;
+  ocr_skipped: number;
   llm_ok: number;
   llm_fail: number;
+  llm_skipped: number;
+  llm_blocked: number;
+  metadata_fail: number;
+  elapsed_seconds: number;
+  ocr_elapsed_seconds: number;
+  llm_elapsed_seconds: number;
+  ocr_throughput: number;
+  llm_throughput: number;
 }

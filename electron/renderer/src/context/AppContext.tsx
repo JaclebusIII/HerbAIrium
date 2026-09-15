@@ -15,9 +15,10 @@ interface AppContextValue {
   setCurrentIndex: React.Dispatch<React.SetStateAction<number | null>>;
   batchRunning: boolean;
   batchProgress: number;
+  batchWaiting: boolean;
   batchStatusLine: string;
   batchSummary: BatchSummary | null;
-  startBatch: () => Promise<void>;
+  startBatch: (mode?: "realtime" | "provider") => Promise<void>;
   cancelBatch: () => void;
   resetBatchState: () => void;
 }
@@ -32,6 +33,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentIndex, setCurrentIndex] = useState<number | null>(null);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState(0);
+  const [batchWaiting, setBatchWaiting] = useState(false);
   const [batchStatusLine, setBatchStatusLine] = useState("");
   const [batchSummary, setBatchSummary] = useState<BatchSummary | null>(null);
   const batchControllerRef = useRef<AbortController | null>(null);
@@ -51,6 +53,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     batchControllerRef.current?.abort();
     batchControllerRef.current = null;
     setBatchRunning(false);
+    setBatchWaiting(false);
     setBatchStatusLine("Batch cancelled.");
   }
 
@@ -60,11 +63,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     batchControllerRef.current = null;
     setBatchRunning(false);
     setBatchProgress(0);
+    setBatchWaiting(false);
     setBatchStatusLine("");
     setBatchSummary(null);
   }
 
-  async function startBatch() {
+  async function startBatch(mode: "realtime" | "provider" = "realtime") {
     if (batchRunning) return;
     if (!config?.deepinfra_api_key) {
       setBatchStatusLine("Add API key in Configuration, then try again.");
@@ -77,23 +81,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     batchControllerRef.current = controller;
     setBatchRunning(true);
     setBatchProgress(0);
-    setBatchStatusLine("Starting batch...");
+    setBatchWaiting(mode === "provider");
+    setBatchStatusLine(
+      mode === "realtime"
+        ? "Starting fast processing..."
+        : "Starting economy batch...",
+    );
     setBatchSummary(null);
 
     const activeFiles: Record<"ocr" | "llm", string[]> = { ocr: [], llm: [] };
 
     try {
-      for await (const event of batchProcessStream(controller.signal)) {
+      for await (const event of batchProcessStream(mode, controller.signal)) {
         if (batchRunIdRef.current !== runId) return;
 
         if (event.stage === "done") {
           setBatchSummary({
             ocr_ok: event.ocr_ok ?? 0,
             ocr_fail: event.ocr_fail ?? 0,
+            ocr_skipped: event.ocr_skipped ?? 0,
             llm_ok: event.llm_ok ?? 0,
             llm_fail: event.llm_fail ?? 0,
+            llm_skipped: event.llm_skipped ?? 0,
+            llm_blocked: event.llm_blocked ?? 0,
+            metadata_fail: event.metadata_fail ?? 0,
+            elapsed_seconds: event.elapsed_seconds ?? 0,
+            ocr_elapsed_seconds: event.ocr_elapsed_seconds ?? 0,
+            llm_elapsed_seconds: event.llm_elapsed_seconds ?? 0,
+            ocr_throughput: event.ocr_throughput ?? 0,
+            llm_throughput: event.llm_throughput ?? 0,
           });
           setBatchProgress(1);
+          setBatchWaiting(false);
           setBatchStatusLine("Done.");
           continue;
         }
@@ -103,19 +122,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const filename = event.filename ?? "";
 
         if (event.status === "running") {
-          activeFiles[stage] = [...activeFiles[stage].filter((name) => name !== filename), filename];
-          setBatchStatusLine(`Running ${stageLabel}: ${filename}`);
+          if (filename) {
+            activeFiles[stage] = [
+              ...activeFiles[stage].filter((name) => name !== filename),
+              filename,
+            ];
+          }
+          const completedOperations = event.completed_operations ?? 0;
+          const totalOperations = event.total_operations ?? 0;
+          setBatchProgress(
+            totalOperations > 0 ? completedOperations / totalOperations : 0,
+          );
+          setBatchWaiting(mode === "provider" && completedOperations === 0);
+          setBatchStatusLine(
+            event.message ?? `Running ${stageLabel}: ${filename}`,
+          );
           continue;
         }
 
         activeFiles[stage] = activeFiles[stage].filter((name) => name !== filename);
         const current = event.current ?? 0;
         const total = event.total ?? 0;
-        if (stage === "ocr") {
-          setBatchProgress(total > 0 ? current / (total * 2) : 0);
-        } else {
-          setBatchProgress(0.5 + (total > 0 ? current / (total * 2) : 0));
-        }
+        const completedOperations = event.completed_operations ?? 0;
+        const totalOperations = event.total_operations ?? 0;
+        setBatchProgress(totalOperations > 0 ? completedOperations / totalOperations : 1);
+        setBatchWaiting(false);
 
         if (filename && event.status === "ok") {
           updateImageSummary(filename, stage === "ocr"
@@ -126,9 +157,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
 
         const activeFilename = activeFiles[stage][activeFiles[stage].length - 1];
+        const elapsedSeconds = Math.floor(event.elapsed_seconds ?? 0);
         setBatchStatusLine(activeFilename
-          ? `Running ${stageLabel}: ${activeFilename}`
-          : `${stageLabel}: ${current}/${total} complete`);
+          ? `Running ${stageLabel}: ${activeFilename} (${current}/${total} complete; ${elapsedSeconds}s)`
+          : `${stageLabel}: ${current}/${total} complete; ${elapsedSeconds}s`);
       }
     } catch (err) {
       if (batchRunIdRef.current !== runId) return;
@@ -141,6 +173,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (batchRunIdRef.current === runId) {
         batchControllerRef.current = null;
         setBatchRunning(false);
+        setBatchWaiting(false);
       }
     }
   }
@@ -160,6 +193,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setCurrentIndex,
         batchRunning,
         batchProgress,
+        batchWaiting,
         batchStatusLine,
         batchSummary,
         startBatch,
