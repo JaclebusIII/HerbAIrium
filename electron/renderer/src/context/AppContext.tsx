@@ -159,7 +159,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const activeFilename = activeFiles[stage][activeFiles[stage].length - 1];
         const elapsedSeconds = Math.floor(event.elapsed_seconds ?? 0);
         setBatchStatusLine(activeFilename
-          ? `Running ${stageLabel}: ${activeFilename}: ${current}/${total} complete; ${elapsedSeconds}s`
+          ? `Running ${stageLabel}: ${activeFilename} (${current}/${total} complete; ${elapsedSeconds}s)`
           : `${stageLabel}: ${current}/${total} complete; ${elapsedSeconds}s`);
       }
     } catch (err) {
