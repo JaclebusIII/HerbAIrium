@@ -183,7 +183,7 @@ class ConfigSaveRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "api_version": 2}
 
 
 @app.post("/workspace/open")

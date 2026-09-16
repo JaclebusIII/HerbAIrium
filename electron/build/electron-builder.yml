@@ -24,7 +24,7 @@ mac:
   # Sidecar binary for macOS (built by PyInstaller on a Mac)
   extraResources:
     - from: ../HerbAIrium/sidecar/dist/herbairium-sidecar
-      to: sidecar/herbairium-sidecar
+      to: sidecar/herbairium-sidecar-v2
 
 dmg:
   sign: false
@@ -38,7 +38,7 @@ win:
   # Sidecar binary for Windows (built by PyInstaller on Windows)
   extraResources:
     - from: ../HerbAIrium/sidecar/dist/herbairium-sidecar.exe
-      to: sidecar/herbairium-sidecar.exe
+      to: sidecar/herbairium-sidecar-v2.exe
 
 nsis:
   oneClick: false

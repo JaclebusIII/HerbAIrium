@@ -54,7 +54,7 @@ export interface WorkspaceOpenResponse {
   folder_path: string;
   image_count: number;
   image_files: string[];
-  images: ImageSummary[];
+  images?: ImageSummary[];
   config: Configuration;
 }
 

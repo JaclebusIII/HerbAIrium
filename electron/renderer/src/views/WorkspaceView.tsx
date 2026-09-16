@@ -18,14 +18,22 @@ export function WorkspaceView() {
     setLoading(true);
     try {
       const result = await openWorkspace(folderPath.trim());
-      if (result.image_count === 0) {
+      const images = result.images ?? result.image_files.map((path, index) => ({
+        index,
+        path,
+        filename: path.split(/[\\/]/).pop() ?? path,
+        ocr_complete: false,
+        parse_complete: false,
+        status_error: null,
+      }));
+      if (result.image_files.length === 0) {
         setError("No images found in that folder (jpg, png, tif, tiff).");
         return;
       }
       setWorkspaceFolder(result.folder_path);
       setConfig(result.config);
       setImageFiles(result.image_files);
-      setImageSummaries(result.images);
+      setImageSummaries(images);
       setCurrentIndex(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

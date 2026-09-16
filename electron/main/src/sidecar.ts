@@ -7,6 +7,7 @@ import * as http from "http";
 let sidecarProcess: ChildProcess | null = null;
 let sidecarPort: number | null = null;
 const SIDECAR_STARTUP_TIMEOUT_MS = 30000;
+const SIDECAR_API_VERSION = 2;
 
 function findFreePort(): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -74,12 +75,30 @@ function waitForHealth(
       }
 
       request = http.get(`http://127.0.0.1:${port}/health`, (res) => {
-        res.resume();
-        if (res.statusCode === 200) {
-          finish();
-        } else {
-          scheduleNextAttempt();
-        }
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => {
+          body += chunk;
+        });
+        res.on("end", () => {
+          if (res.statusCode !== 200) {
+            scheduleNextAttempt();
+            return;
+          }
+          try {
+            const health = JSON.parse(body) as { api_version?: number };
+            if (health.api_version !== SIDECAR_API_VERSION) {
+              finish(new Error(
+                `The installed sidecar is incompatible (expected API version ${SIDECAR_API_VERSION}, ` +
+                `received ${health.api_version ?? "unknown"}). Please reinstall HerbAIrium.`,
+              ));
+              return;
+            }
+            finish();
+          } catch {
+            finish(new Error("The sidecar returned an invalid health response."));
+          }
+        });
       });
       request.setTimeout(1000, () => request?.destroy());
       request.on("error", scheduleNextAttempt);
@@ -103,7 +122,7 @@ export async function startSidecar(): Promise<number> {
     const binary = path.join(
       process.resourcesPath,
       "sidecar",
-      `herbairium-sidecar${ext}`
+      `herbairium-sidecar-v2${ext}`
     );
     command = binary;
     args = ["--port", String(port)];
