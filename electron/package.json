@@ -4,7 +4,6 @@
   "description": "Herbarium specimen image processor",
   "main": "main/dist/index.js",
   "scripts": {
-    "postinstall": "install-electron",
     "dev:renderer": "cd renderer && npm run dev",
     "dev:main": "tsc -p main/tsconfig.json --watch",
     "dev": "concurrently --kill-others-on-fail \"npm run dev:renderer\" \"npm run dev:main\" \"wait-on http://localhost:5173 && electron .\"",
@@ -16,7 +15,7 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
-    "electron": "^44.3.0",
+    "electron": "31.7.7",
     "electron-builder": "^24.13.3",
     "typescript": "^5.4.5",
     "wait-on": "^7.2.0"

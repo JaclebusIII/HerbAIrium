@@ -5,13 +5,14 @@ import { registerIpc } from "./ipc";
 
 let mainWindow: BrowserWindow | null = null;
 
-async function createWindow(): Promise<void> {
-  mainWindow = new BrowserWindow({
+function createWindow(): BrowserWindow {
+  const win = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 900,
     minHeight: 640,
-    show: false,
+    show: true,
+    backgroundColor: "#f4f7f1",
     title: "HerbAIrium",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -20,41 +21,49 @@ async function createWindow(): Promise<void> {
     },
   });
 
-  registerIpc(mainWindow);
-  mainWindow.once("ready-to-show", () => {
-    mainWindow?.show();
+  win.on("closed", () => {
+    if (mainWindow === win) mainWindow = null;
   });
+  mainWindow = win;
+  return win;
+}
 
+async function loadApplication(win: BrowserWindow): Promise<void> {
   if (app.isPackaged) {
-    try {
-      await mainWindow.loadFile(path.join(__dirname, "../../renderer/dist/index.html"));
-    } catch (err) {
-      dialog.showErrorBox("HerbAIrium", `Failed to load app: ${err instanceof Error ? err.message : String(err)}`);
-      app.quit();
-      return;
-    }
+    await win.loadFile(path.join(__dirname, "../../renderer/dist/index.html"));
   } else {
-    await mainWindow.loadURL(`http://localhost:5173/?sidecarPort=${getSidecarPort()}`);
-    mainWindow.webContents.openDevTools();
+    await win.loadURL(`http://localhost:5173/?sidecarPort=${getSidecarPort()}`);
+    win.webContents.openDevTools();
   }
-
-  mainWindow.on("closed", () => {
-    mainWindow = null;
-  });
+  win.show();
+  win.focus();
 }
 
 app.whenReady().then(async () => {
+  const win = createWindow();
+  registerIpc(win);
+  await win.loadURL(
+    `data:text/html;charset=utf-8,${encodeURIComponent(
+      '<!doctype html><html><head><meta charset="utf-8"><title>HerbAIrium</title>' +
+      '<style>body{margin:0;background:#f4f7f1;color:#263328;font:16px system-ui;display:grid;' +
+      'place-items:center;height:100vh}main{text-align:center}h1{font-size:28px;margin:0 0 12px}' +
+      'p{margin:0;color:#5b685d}</style></head><body><main><h1>HerbAIrium</h1>' +
+      '<p>Starting background services...</p></main></body></html>',
+    )}`,
+  );
+
   try {
     await startSidecar();
+    await loadApplication(win);
   } catch (err) {
-    dialog.showErrorBox(
-      "HerbAIrium — Startup Error",
-      `The background process failed to start:\n\n${err instanceof Error ? err.message : String(err)}\n\nPlease restart the app.`
-    );
+    await dialog.showMessageBox(win, {
+      type: "error",
+      title: "HerbAIrium - Startup Error",
+      message: "HerbAIrium could not start.",
+      detail: `${err instanceof Error ? err.message : String(err)}\n\nPlease restart the app.`,
+    });
     app.quit();
-    return;
   }
-  await createWindow();
 });
 
 app.on("window-all-closed", () => {
@@ -62,7 +71,10 @@ app.on("window-all-closed", () => {
 });
 
 app.on("activate", async () => {
-  if (mainWindow === null) await createWindow();
+  if (mainWindow === null) {
+    const win = createWindow();
+    await loadApplication(win);
+  }
 });
 
 app.on("before-quit", async (event) => {
